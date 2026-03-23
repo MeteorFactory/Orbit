@@ -1,0 +1,56 @@
+# ============================================================================
+# Sample: CI for an Electron desktop application
+# ============================================================================
+#
+# This workflow calls the reusable CI Electron template from MeteorFactory/Pipelines.
+# It runs lint, typecheck, test, and build jobs on macOS and Windows.
+#
+# Key difference from ci-node.yml:
+#   - Default OS matrix includes macOS + Windows (Electron targets both)
+#   - Build job sets NODE_OPTIONS for higher memory (Electron builds are heavy)
+#
+# Prerequisites:
+#   - Your project has these npm scripts: lint, typecheck, test, build
+#   - electron-builder or electron-forge configured in package.json
+#   - Native dependencies (node-pty, better-sqlite3, etc.) compile on all targets
+#
+# Usage:
+#   Copy this file into your Electron project at .github/workflows/ci.yml
+#   Adjust inputs to match your project needs.
+# ============================================================================
+
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+jobs:
+  ci:
+    # Call the Electron-specific reusable workflow.
+    # Uses a multi-OS matrix by default (macOS + Windows).
+    uses: MeteorFactory/Pipelines/.github/workflows/ci-electron.yml@main
+    with:
+      # Node.js version — Electron apps often need a specific version
+      # to match the Electron Node.js ABI for native modules.
+      node-version: "22"
+
+      # OS matrix — Electron apps typically need to build on each target OS.
+      # Default is '["macos-latest", "windows-latest"]'.
+      # Add "ubuntu-latest" if you support Linux:
+      #   os-matrix: '["macos-latest", "windows-latest", "ubuntu-latest"]'
+      # Use macOS only for faster iteration during development:
+      #   os-matrix: '["macos-latest"]'
+      os-matrix: '["macos-latest", "windows-latest"]'
+
+      # Lint and typecheck only need to run on one OS (they are platform-independent).
+      # To save CI minutes, you could split into separate jobs:
+      #   - One job with lint+typecheck on ubuntu-latest (via ci-node.yml)
+      #   - One job with build+test on macOS+Windows (via ci-electron.yml)
+      # For simplicity, this sample runs everything on all OS targets.
+      run-lint: true
+      run-typecheck: true
+      run-test: true
+      run-build: true

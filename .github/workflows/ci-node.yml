@@ -1,0 +1,90 @@
+name: CI Node.js
+
+on:
+  workflow_call:
+    inputs:
+      node-version:
+        description: "Node.js version to use"
+        type: string
+        default: "22"
+      os-matrix:
+        description: "JSON array of runner OS labels"
+        type: string
+        default: '["ubuntu-latest"]'
+      run-lint:
+        description: "Run lint job"
+        type: boolean
+        default: true
+      run-typecheck:
+        description: "Run typecheck job"
+        type: boolean
+        default: true
+      run-test:
+        description: "Run test job"
+        type: boolean
+        default: true
+      run-build:
+        description: "Run build job"
+        type: boolean
+        default: true
+
+jobs:
+  lint:
+    if: ${{ inputs.run-lint }}
+    strategy:
+      matrix:
+        os: ${{ fromJson(inputs.os-matrix) }}
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ inputs.node-version }}
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+
+  typecheck:
+    if: ${{ inputs.run-typecheck }}
+    strategy:
+      matrix:
+        os: ${{ fromJson(inputs.os-matrix) }}
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ inputs.node-version }}
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+
+  test:
+    if: ${{ inputs.run-test }}
+    strategy:
+      matrix:
+        os: ${{ fromJson(inputs.os-matrix) }}
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ inputs.node-version }}
+          cache: npm
+      - run: npm ci
+      - run: npm run test
+
+  build:
+    if: ${{ inputs.run-build }}
+    strategy:
+      matrix:
+        os: ${{ fromJson(inputs.os-matrix) }}
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ inputs.node-version }}
+          cache: npm
+      - run: npm ci
+      - run: npm run build

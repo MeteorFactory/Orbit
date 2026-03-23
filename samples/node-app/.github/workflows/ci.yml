@@ -1,0 +1,43 @@
+# ============================================================================
+# Sample: CI for a standard Node.js project
+# ============================================================================
+#
+# This workflow calls the reusable CI Node.js template from MeteorFactory/Pipelines.
+# It runs lint, typecheck, test, and build jobs on every push/PR to main.
+#
+# Prerequisites:
+#   - Your project has these npm scripts: lint, typecheck, test, build
+#   - Node.js version matches your project requirements
+#
+# Usage:
+#   Copy this file into your project at .github/workflows/ci.yml
+#   Adjust inputs to match your project needs.
+# ============================================================================
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  ci:
+    # Call the reusable workflow from the Pipelines repo.
+    # The template must live in .github/workflows/ of the called repo.
+    uses: MeteorFactory/Pipelines/.github/workflows/ci-node.yml@main
+    with:
+      # Node.js version — must match your project's .nvmrc / engines.node
+      node-version: "22"
+
+      # OS matrix — run on Ubuntu only for a standard Node.js project.
+      # For multi-OS, use: '["ubuntu-latest", "macos-latest"]'
+      os-matrix: '["ubuntu-latest"]'
+
+      # Toggle individual jobs on/off as needed.
+      # Set to false to skip a step your project doesn't use.
+      run-lint: true
+      run-typecheck: true
+      run-test: true
+      run-build: true

@@ -1,0 +1,82 @@
+# ============================================================================
+# Sample: Release workflow for an Electron desktop application
+# ============================================================================
+#
+# This workflow calls the reusable Release Electron template from
+# MeteorFactory/Pipelines. It handles:
+#   - Automatic version bumping and git tag creation
+#   - macOS build with code signing and notarization (arm64 + x64)
+#   - Windows build (x64)
+#   - GitHub Release creation with artifacts
+#   - Cleanup (remove .blockmap files, publish draft release)
+#
+# Trigger:
+#   Manual dispatch only (workflow_dispatch) — you choose when to release.
+#   Can also be triggered on tag push if preferred (see commented trigger below).
+#
+# Prerequisites — Repository Secrets:
+#   GH_TOKEN                    — GitHub PAT with repo + write:packages scope
+#   MAC_CERTIFICATE             — Base64-encoded .p12 signing certificate
+#   MAC_CERTIFICATE_PASSWORD    — Password for the .p12 certificate
+#   APPLE_ID                    — Apple ID email for notarization
+#   APPLE_APP_SPECIFIC_PASSWORD — App-specific password (appleid.apple.com)
+#   APPLE_TEAM_ID               — Apple Developer Team ID (10-char alphanumeric)
+#
+# How to encode your macOS certificate:
+#   base64 -i Certificates.p12 | pbcopy
+#   Then paste the value into the MAC_CERTIFICATE secret.
+#
+# Usage:
+#   Copy this file into your Electron project at .github/workflows/release.yml
+#   Configure all required secrets in GitHub repo settings.
+# ============================================================================
+
+name: Release
+
+# Manual trigger — click "Run workflow" in the Actions tab
+on:
+  workflow_dispatch:
+
+# Alternative: trigger on version tags
+# on:
+#   push:
+#     tags:
+#       - 'v*'
+
+jobs:
+  release:
+    uses: MeteorFactory/Pipelines/.github/workflows/release-electron.yml@main
+    with:
+      # Node.js version — must match the version used in CI
+      node-version: "22"
+
+    # All secrets required by the release template.
+    # These must be configured in your repository's Settings > Secrets.
+    secrets:
+      # GitHub token for creating releases and uploading artifacts.
+      # Use a PAT (not GITHUB_TOKEN) if electron-builder needs to publish
+      # to a different repo or if you need write access to releases.
+      GH_TOKEN: ${{ secrets.GH_TOKEN }}
+
+      # macOS code signing certificate (.p12) encoded in base64.
+      # Used by electron-builder via CSC_LINK environment variable.
+      MAC_CERTIFICATE: ${{ secrets.MAC_CERTIFICATE }}
+
+      # Password to unlock the .p12 certificate.
+      # Used by electron-builder via CSC_KEY_PASSWORD environment variable.
+      MAC_CERTIFICATE_PASSWORD: ${{ secrets.MAC_CERTIFICATE_PASSWORD }}
+
+      # Apple ID email used for notarization.
+      # The app is submitted to Apple's notarization service after signing.
+      APPLE_ID: ${{ secrets.APPLE_ID }}
+
+      # App-specific password for the Apple ID above.
+      # Generate at https://appleid.apple.com > Security > App-Specific Passwords.
+      APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+
+      # Apple Developer Team ID (found in Apple Developer portal).
+      # Required for notarization to identify your team.
+      APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+
+    # The release template requires write access to contents (for creating tags
+    # and releases). This is set inside the template via `permissions: contents: write`.

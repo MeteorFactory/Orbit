@@ -1,0 +1,167 @@
+name: 'Azure Key Vault Secrets'
+description: 'Fetch secrets from Azure Key Vault and set them as environment variables or outputs'
+
+inputs:
+  keyvault-name:
+    description: 'Name of the Azure Key Vault'
+    required: true
+  secret-names:
+    description: 'Comma-separated list of secret names (e.g. "DB-PASSWORD,API-KEY,JWT-SECRET")'
+    required: true
+  azure-credentials:
+    description: 'Azure Service Principal credentials JSON (clientId, clientSecret, subscriptionId, tenantId)'
+    required: true
+  export-as:
+    description: 'Export mode: "env" for environment variables, "output" for step outputs'
+    required: false
+    default: 'env'
+  mask-values:
+    description: 'Mask secret values in workflow logs'
+    required: false
+    default: 'true'
+
+outputs:
+  secrets-json:
+    description: 'JSON object mapping secret names (underscored) to their values (only when export-as=output)'
+    value: ${{ steps.fetch-secrets.outputs.secrets-json }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Validate inputs
+      shell: bash
+      run: |
+        if [ -z "${{ inputs.keyvault-name }}" ]; then
+          echo "::error::Input 'keyvault-name' is required"
+          exit 1
+        fi
+        if [ -z "${{ inputs.secret-names }}" ]; then
+          echo "::error::Input 'secret-names' is required"
+          exit 1
+        fi
+        if [ -z "${{ inputs.azure-credentials }}" ]; then
+          echo "::error::Input 'azure-credentials' is required"
+          exit 1
+        fi
+        export_as="${{ inputs.export-as }}"
+        if [ "$export_as" != "env" ] && [ "$export_as" != "output" ]; then
+          echo "::error::Input 'export-as' must be 'env' or 'output', got '$export_as'"
+          exit 1
+        fi
+
+    - name: Install Azure CLI
+      shell: bash
+      run: |
+        if ! command -v az &> /dev/null; then
+          echo "::group::Installing Azure CLI"
+          if [ "$(uname)" = "Linux" ]; then
+            curl -sL https://aka.ms/InstallAzureCLIDeb | sudo bash
+          elif [ "$(uname)" = "Darwin" ]; then
+            brew update && brew install azure-cli
+          else
+            echo "::error::Unsupported OS for Azure CLI auto-install"
+            exit 1
+          fi
+          echo "::endgroup::"
+        fi
+        echo "Azure CLI version: $(az version --output tsv --query '\"azure-cli\"')"
+
+    - name: Azure login
+      shell: bash
+      env:
+        AZURE_CREDENTIALS: ${{ inputs.azure-credentials }}
+      run: |
+        client_id=$(echo "$AZURE_CREDENTIALS" | jq -r '.clientId')
+        client_secret=$(echo "$AZURE_CREDENTIALS" | jq -r '.clientSecret')
+        tenant_id=$(echo "$AZURE_CREDENTIALS" | jq -r '.tenantId')
+        subscription_id=$(echo "$AZURE_CREDENTIALS" | jq -r '.subscriptionId')
+
+        if [ "$client_id" = "null" ] || [ "$client_secret" = "null" ] || [ "$tenant_id" = "null" ]; then
+          echo "::error::Invalid azure-credentials JSON. Expected keys: clientId, clientSecret, tenantId, subscriptionId"
+          exit 1
+        fi
+
+        echo "::add-mask::$client_secret"
+
+        az login --service-principal \
+          --username "$client_id" \
+          --password "$client_secret" \
+          --tenant "$tenant_id" \
+          --output none
+
+        if [ "$subscription_id" != "null" ] && [ -n "$subscription_id" ]; then
+          az account set --subscription "$subscription_id"
+        fi
+
+        echo "Logged in to Azure successfully"
+
+    - name: Fetch secrets
+      id: fetch-secrets
+      shell: bash
+      run: |
+        keyvault_name="${{ inputs.keyvault-name }}"
+        export_as="${{ inputs.export-as }}"
+        mask_values="${{ inputs.mask-values }}"
+
+        IFS=',' read -ra secret_list <<< "${{ inputs.secret-names }}"
+
+        secrets_json="{}"
+        failed=0
+
+        for raw_name in "${secret_list[@]}"; do
+          secret_name=$(echo "$raw_name" | xargs)
+
+          if [ -z "$secret_name" ]; then
+            continue
+          fi
+
+          echo "Fetching secret: $secret_name"
+
+          secret_value=$(az keyvault secret show \
+            --vault-name "$keyvault_name" \
+            --name "$secret_name" \
+            --query "value" \
+            --output tsv 2>&1)
+
+          if [ $? -ne 0 ]; then
+            echo "::error::Failed to fetch secret '$secret_name' from vault '$keyvault_name': $secret_value"
+            failed=1
+            continue
+          fi
+
+          if [ "$mask_values" = "true" ]; then
+            echo "::add-mask::$secret_value"
+          fi
+
+          env_name=$(echo "$secret_name" | tr '-' '_' | tr '[:lower:]' '[:upper:]')
+
+          if [ "$export_as" = "env" ]; then
+            echo "$env_name=$secret_value" >> "$GITHUB_ENV"
+            echo "Exported $secret_name as env var $env_name"
+          fi
+
+          if [ "$export_as" = "output" ]; then
+            echo "$env_name=$secret_value" >> "$GITHUB_OUTPUT"
+            echo "Exported $secret_name as output $env_name"
+          fi
+
+          secrets_json=$(echo "$secrets_json" | jq --arg k "$env_name" --arg v "$secret_value" '. + {($k): $v}')
+        done
+
+        if [ "$export_as" = "output" ]; then
+          echo "secrets-json=$secrets_json" >> "$GITHUB_OUTPUT"
+        fi
+
+        if [ "$failed" -ne 0 ]; then
+          echo "::error::One or more secrets failed to fetch"
+          exit 1
+        fi
+
+        echo "All secrets fetched successfully"
+
+    - name: Azure logout
+      shell: bash
+      if: always()
+      run: |
+        az logout 2>/dev/null || true
+        echo "Logged out from Azure"

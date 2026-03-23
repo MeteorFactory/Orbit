@@ -1,0 +1,165 @@
+name: Release Electron
+
+on:
+  workflow_call:
+    inputs:
+      node-version:
+        description: "Node.js version to use"
+        type: string
+        default: "22"
+    secrets:
+      GH_TOKEN:
+        description: "GitHub token for release creation and publishing"
+        required: true
+      MAC_CERTIFICATE:
+        description: "Base64-encoded macOS signing certificate (.p12)"
+        required: true
+      MAC_CERTIFICATE_PASSWORD:
+        description: "Password for the macOS signing certificate"
+        required: true
+      APPLE_ID:
+        description: "Apple ID for notarization"
+        required: true
+      APPLE_APP_SPECIFIC_PASSWORD:
+        description: "App-specific password for Apple notarization"
+        required: true
+      APPLE_TEAM_ID:
+        description: "Apple Developer Team ID"
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  prepare-release:
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.version.outputs.tag }}
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Determine next version
+        id: version
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          MAJOR_MINOR=$(echo "$VERSION" | sed 's/\.[0-9]*$//')
+          LATEST_TAG=$(git tag -l "v${MAJOR_MINOR}.*" | sort -V | tail -1)
+          if [ -z "$LATEST_TAG" ]; then
+            NEXT_VERSION="$VERSION"
+          else
+            LATEST_PATCH=$(echo "$LATEST_TAG" | sed "s/v${MAJOR_MINOR}\.//")
+            NEXT_PATCH=$((LATEST_PATCH + 1))
+            NEXT_VERSION="${MAJOR_MINOR}.${NEXT_PATCH}"
+          fi
+          TAG="v${NEXT_VERSION}"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "version=$NEXT_VERSION" >> "$GITHUB_OUTPUT"
+          echo "Next version: $TAG"
+
+      - name: Get last commit author
+        id: author
+        run: |
+          echo "name=$(git log -1 --format='%an')" >> "$GITHUB_OUTPUT"
+          echo "email=$(git log -1 --format='%ae')" >> "$GITHUB_OUTPUT"
+
+      - name: Create and push tag
+        run: |
+          git config user.name "${{ steps.author.outputs.name }}"
+          git config user.email "${{ steps.author.outputs.email }}"
+          git tag ${{ steps.version.outputs.tag }}
+          git push origin ${{ steps.version.outputs.tag }}
+
+  release-mac:
+    needs: [prepare-release]
+    runs-on: macos-latest
+    env:
+      NODE_OPTIONS: --max-old-space-size=4096
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ inputs.node-version }}
+          cache: npm
+
+      - name: Set version in package.json
+        run: npm version ${{ needs.prepare-release.outputs.version }} --no-git-tag-version --allow-same-version
+
+      - run: npm ci
+
+      - name: Build renderer + main
+        run: npm run build
+
+      - name: Verify signing credentials
+        run: |
+          if [ -z "$CSC_LINK" ]; then
+            echo "::error::MAC_CERTIFICATE secret is required for release builds."
+            exit 1
+          fi
+          if [ -z "$APPLE_TEAM_ID" ]; then
+            echo "::error::APPLE_TEAM_ID secret is required for notarization."
+            exit 1
+          fi
+        env:
+          CSC_LINK: ${{ secrets.MAC_CERTIFICATE }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+
+      - name: Build Electron app and publish (arm64 + x64)
+        run: npx electron-builder --mac --arm64 --x64 --publish always
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          CSC_LINK: ${{ secrets.MAC_CERTIFICATE }}
+          CSC_KEY_PASSWORD: ${{ secrets.MAC_CERTIFICATE_PASSWORD }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+
+  release-win:
+    needs: [prepare-release]
+    runs-on: windows-latest
+    env:
+      NODE_OPTIONS: --max-old-space-size=4096
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ inputs.node-version }}
+          cache: npm
+
+      - name: Set version in package.json
+        shell: bash
+        run: npm version ${{ needs.prepare-release.outputs.version }} --no-git-tag-version --allow-same-version
+
+      - run: npm ci
+
+      - name: Build renderer + main
+        run: npm run build
+
+      - name: Build Electron app and publish (Windows x64)
+        shell: bash
+        run: npx electron-builder --win --x64 --publish always
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+
+  finalize-release:
+    needs: [prepare-release, release-mac, release-win]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Clean up release assets (remove blockmaps)
+        run: |
+          TAG="${{ needs.prepare-release.outputs.tag }}"
+          for asset in $(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json assets -q '.assets[].name' | grep '\.blockmap$'); do
+            echo "Removing $asset"
+            gh release delete-asset "$TAG" "$asset" --repo "$GITHUB_REPOSITORY" --yes
+          done
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+
+      - name: Publish release (draft -> public)
+        run: gh release edit ${{ needs.prepare-release.outputs.tag }} --repo "$GITHUB_REPOSITORY" --draft=false
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}

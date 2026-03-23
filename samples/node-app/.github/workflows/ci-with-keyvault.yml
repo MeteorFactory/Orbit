@@ -1,0 +1,120 @@
+# ============================================================================
+# Sample: CI for a Node.js project with Azure Key Vault secrets
+# ============================================================================
+#
+# This workflow demonstrates combining two Pipelines components:
+#   1. The azure-keyvault custom action to fetch secrets from Azure
+#   2. The ci-node reusable workflow for CI checks
+#
+# Flow:
+#   Job 1 (fetch-secrets) — Authenticates to Azure and retrieves secrets,
+#     exposing them as job outputs.
+#   Job 2 (ci) — Runs the standard CI pipeline. Secrets from Job 1 are
+#     available if your CI steps need them (e.g., for integration tests
+#     that hit a real database or external API).
+#
+# Prerequisites:
+#   - An Azure Key Vault with the required secrets
+#   - An Azure Service Principal with read access to the vault
+#   - The AZURE_CREDENTIALS repository secret containing the SP JSON:
+#     { "clientId": "...", "clientSecret": "...", "tenantId": "...", "subscriptionId": "..." }
+#
+# Usage:
+#   Copy this file into your project at .github/workflows/ci-with-keyvault.yml
+#   Adjust the keyvault-name, secret-names, and CI inputs.
+# ============================================================================
+
+name: CI with Azure Key Vault
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  # --------------------------------------------------------------------------
+  # Job 1: Fetch secrets from Azure Key Vault
+  # --------------------------------------------------------------------------
+  fetch-secrets:
+    runs-on: ubuntu-latest
+    outputs:
+      # Forward the secrets JSON to downstream jobs.
+      # Each secret is also available as an individual output (e.g., DB_PASSWORD).
+      secrets-json: ${{ steps.keyvault.outputs.secrets-json }}
+      DB_PASSWORD: ${{ steps.keyvault.outputs.DB_PASSWORD }}
+      API_KEY: ${{ steps.keyvault.outputs.API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Fetch secrets from Azure Key Vault
+        id: keyvault
+        # Reference the custom action from the Pipelines repo.
+        # For a pinned version, replace @main with a tag (e.g., @v1.0.0).
+        uses: MeteorFactory/Pipelines/actions/azure-keyvault@main
+        with:
+          # Name of your Azure Key Vault instance
+          keyvault-name: my-project-vault
+
+          # Comma-separated secret names as they exist in the vault.
+          # Hyphens are converted to underscores and uppercased for env/output names:
+          #   db-password  -> DB_PASSWORD
+          #   api-key      -> API_KEY
+          secret-names: "db-password,api-key"
+
+          # Azure Service Principal credentials (stored as a GitHub secret)
+          azure-credentials: ${{ secrets.AZURE_CREDENTIALS }}
+
+          # Export as step outputs (not env vars) so we can pass to other jobs
+          export-as: output
+
+          # Mask values in logs (default: true) — always keep enabled for secrets
+          mask-values: "true"
+
+  # --------------------------------------------------------------------------
+  # Job 2: Run CI with secrets available
+  # --------------------------------------------------------------------------
+  ci:
+    needs: [fetch-secrets]
+    uses: MeteorFactory/Pipelines/.github/workflows/ci-node.yml@main
+    with:
+      node-version: "22"
+      os-matrix: '["ubuntu-latest"]'
+      run-lint: true
+      run-typecheck: true
+      run-test: true
+      run-build: true
+
+    # NOTE: Reusable workflows cannot directly receive env vars from a caller job.
+    # If your tests need secrets at runtime, you have two options:
+    #
+    # Option A — Pass secrets via the `secrets` keyword (if the reusable workflow
+    #            declares them). ci-node.yml does not declare custom secrets,
+    #            so this approach requires extending the template.
+    #
+    # Option B — Use a separate job after CI to run integration tests that
+    #            need secrets. Example below:
+
+  # --------------------------------------------------------------------------
+  # Job 3 (optional): Integration tests that require secrets
+  # --------------------------------------------------------------------------
+  integration-tests:
+    needs: [fetch-secrets, ci]
+    runs-on: ubuntu-latest
+    env:
+      # Inject secrets from the fetch-secrets job as environment variables
+      DB_PASSWORD: ${{ needs.fetch-secrets.outputs.DB_PASSWORD }}
+      API_KEY: ${{ needs.fetch-secrets.outputs.API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - run: npm ci
+
+      # Run integration tests that depend on real credentials
+      - name: Run integration tests
+        run: npm run test:integration
