@@ -7,6 +7,14 @@ on:
         description: "Node.js version to use"
         type: string
         default: "22"
+      package-manager:
+        description: "Package manager to use (npm or pnpm)"
+        type: string
+        default: "npm"
+      pnpm-version:
+        description: "pnpm version (only used when package-manager is pnpm)"
+        type: string
+        default: "10"
       os-matrix:
         description: "JSON array of runner OS labels"
         type: string
@@ -37,12 +45,19 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        if: ${{ inputs.package-manager == 'pnpm' }}
+        with:
+          version: ${{ inputs.pnpm-version }}
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ inputs.node-version }}
-          cache: npm
+          cache: ${{ inputs.package-manager }}
       - run: npm ci
-      - run: npm run lint
+        if: ${{ inputs.package-manager == 'npm' }}
+      - run: pnpm install --frozen-lockfile
+        if: ${{ inputs.package-manager == 'pnpm' }}
+      - run: ${{ inputs.package-manager }} run lint
 
   typecheck:
     if: ${{ inputs.run-typecheck }}
@@ -52,12 +67,19 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        if: ${{ inputs.package-manager == 'pnpm' }}
+        with:
+          version: ${{ inputs.pnpm-version }}
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ inputs.node-version }}
-          cache: npm
+          cache: ${{ inputs.package-manager }}
       - run: npm ci
-      - run: npm run typecheck
+        if: ${{ inputs.package-manager == 'npm' }}
+      - run: pnpm install --frozen-lockfile
+        if: ${{ inputs.package-manager == 'pnpm' }}
+      - run: ${{ inputs.package-manager }} run typecheck
 
   test:
     if: ${{ inputs.run-test }}
@@ -67,12 +89,19 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        if: ${{ inputs.package-manager == 'pnpm' }}
+        with:
+          version: ${{ inputs.pnpm-version }}
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ inputs.node-version }}
-          cache: npm
+          cache: ${{ inputs.package-manager }}
       - run: npm ci
-      - run: npm run test
+        if: ${{ inputs.package-manager == 'npm' }}
+      - run: pnpm install --frozen-lockfile
+        if: ${{ inputs.package-manager == 'pnpm' }}
+      - run: ${{ inputs.package-manager }} run test
 
   build:
     if: ${{ inputs.run-build }}
@@ -82,9 +111,16 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        if: ${{ inputs.package-manager == 'pnpm' }}
+        with:
+          version: ${{ inputs.pnpm-version }}
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ inputs.node-version }}
-          cache: npm
+          cache: ${{ inputs.package-manager }}
       - run: npm ci
-      - run: npm run build
+        if: ${{ inputs.package-manager == 'npm' }}
+      - run: pnpm install --frozen-lockfile
+        if: ${{ inputs.package-manager == 'pnpm' }}
+      - run: ${{ inputs.package-manager }} run build

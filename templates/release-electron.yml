@@ -7,6 +7,14 @@ on:
         description: "Node.js version to use"
         type: string
         default: "22"
+      package-manager:
+        description: "Package manager to use (npm or pnpm)"
+        type: string
+        default: "npm"
+      pnpm-version:
+        description: "pnpm version (only used when package-manager is pnpm)"
+        type: string
+        default: "10"
     secrets:
       GH_TOKEN:
         description: "GitHub token for release creation and publishing"
@@ -80,18 +88,26 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - uses: pnpm/action-setup@v4
+        if: ${{ inputs.package-manager == 'pnpm' }}
+        with:
+          version: ${{ inputs.pnpm-version }}
+
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ inputs.node-version }}
-          cache: npm
+          cache: ${{ inputs.package-manager }}
 
       - name: Set version in package.json
-        run: npm version ${{ needs.prepare-release.outputs.version }} --no-git-tag-version --allow-same-version
+        run: ${{ inputs.package-manager }} version ${{ needs.prepare-release.outputs.version }} --no-git-tag-version --allow-same-version
 
       - run: npm ci
+        if: ${{ inputs.package-manager == 'npm' }}
+      - run: pnpm install --frozen-lockfile
+        if: ${{ inputs.package-manager == 'pnpm' }}
 
       - name: Build renderer + main
-        run: npm run build
+        run: ${{ inputs.package-manager }} run build
 
       - name: Verify signing credentials
         run: |
@@ -125,19 +141,27 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - uses: pnpm/action-setup@v4
+        if: ${{ inputs.package-manager == 'pnpm' }}
+        with:
+          version: ${{ inputs.pnpm-version }}
+
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ inputs.node-version }}
-          cache: npm
+          cache: ${{ inputs.package-manager }}
 
       - name: Set version in package.json
         shell: bash
-        run: npm version ${{ needs.prepare-release.outputs.version }} --no-git-tag-version --allow-same-version
+        run: ${{ inputs.package-manager }} version ${{ needs.prepare-release.outputs.version }} --no-git-tag-version --allow-same-version
 
       - run: npm ci
+        if: ${{ inputs.package-manager == 'npm' }}
+      - run: pnpm install --frozen-lockfile
+        if: ${{ inputs.package-manager == 'pnpm' }}
 
       - name: Build renderer + main
-        run: npm run build
+        run: ${{ inputs.package-manager }} run build
 
       - name: Build Electron app and publish (Windows x64)
         shell: bash

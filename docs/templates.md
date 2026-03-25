@@ -19,6 +19,8 @@ General-purpose Node.js CI pipeline with independently toggleable jobs: lint, ty
 | Input | Type | Required | Default | Description |
 |-------|------|----------|---------|-------------|
 | `node-version` | string | no | `"22"` | Node.js version to use |
+| `package-manager` | string | no | `"npm"` | Package manager to use (`npm` or `pnpm`) |
+| `pnpm-version` | string | no | `"10"` | pnpm version (only used when `package-manager` is `pnpm`) |
 | `os-matrix` | string | no | `'["ubuntu-latest"]'` | JSON array of runner OS labels |
 | `run-lint` | boolean | no | `true` | Enable/disable the lint job |
 | `run-typecheck` | boolean | no | `true` | Enable/disable the typecheck job |
@@ -33,12 +35,12 @@ None.
 
 Each job runs independently (no dependencies between them) and uses the OS matrix:
 
-1. **lint** -- Runs `npm run lint`
-2. **typecheck** -- Runs `npm run typecheck`
-3. **test** -- Runs `npm run test`
-4. **build** -- Runs `npm run build`
+1. **lint** -- Runs `{package-manager} run lint`
+2. **typecheck** -- Runs `{package-manager} run typecheck`
+3. **test** -- Runs `{package-manager} run test`
+4. **build** -- Runs `{package-manager} run build`
 
-All jobs use `npm ci` with npm cache enabled.
+Install step adapts automatically: `npm ci` for npm, `pnpm install --frozen-lockfile` for pnpm.
 
 ### Example
 
@@ -56,6 +58,17 @@ jobs:
     with:
       node-version: "20"
       run-typecheck: false  # Skip typecheck for this project
+```
+
+#### With pnpm
+
+```yaml
+jobs:
+  ci:
+    uses: MeteorFactory/Pipelines/.github/workflows/ci-node.yml@main
+    with:
+      package-manager: "pnpm"
+      pnpm-version: "10"
 ```
 
 #### Multi-OS build
@@ -79,6 +92,8 @@ Electron-specific CI pipeline targeting macOS and Windows by default. Same toggl
 | Input | Type | Required | Default | Description |
 |-------|------|----------|---------|-------------|
 | `node-version` | string | no | `"22"` | Node.js version to use |
+| `package-manager` | string | no | `"npm"` | Package manager to use (`npm` or `pnpm`) |
+| `pnpm-version` | string | no | `"10"` | pnpm version (only used when `package-manager` is `pnpm`) |
 | `os-matrix` | string | no | `'["macos-latest", "windows-latest"]'` | JSON array of runner OS labels |
 | `run-lint` | boolean | no | `true` | Enable/disable the lint job |
 | `run-typecheck` | boolean | no | `true` | Enable/disable the typecheck job |
@@ -104,6 +119,7 @@ jobs:
     uses: MeteorFactory/Pipelines/.github/workflows/ci-electron.yml@main
     with:
       node-version: "22"
+      package-manager: "pnpm"
 ```
 
 ---
@@ -117,6 +133,8 @@ Full Electron release pipeline: auto-versioning from `package.json`, macOS code 
 | Input | Type | Required | Default | Description |
 |-------|------|----------|---------|-------------|
 | `node-version` | string | no | `"22"` | Node.js version to use |
+| `package-manager` | string | no | `"npm"` | Package manager to use (`npm` or `pnpm`) |
+| `pnpm-version` | string | no | `"10"` | pnpm version (only used when `package-manager` is `pnpm`) |
 
 ### Secrets
 
