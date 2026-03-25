@@ -149,6 +149,62 @@ jobs:
     needs: [prepare-release, release-mac, release-win]
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Generate release notes from commits
+        id: notes
+        run: |
+          TAG="${{ needs.prepare-release.outputs.tag }}"
+          PREV_TAG=$(git tag -l 'v*' --sort=-version:refname | grep -v "^${TAG}$" | head -1)
+          if [ -z "$PREV_TAG" ]; then
+            RANGE="HEAD"
+          else
+            RANGE="${PREV_TAG}..${TAG}"
+          fi
+
+          {
+            echo 'body<<RELEASE_NOTES_EOF'
+            echo "## What's Changed"
+            echo ""
+
+            # Group commits by conventional commit type
+            for type_label in "feat:Features" "fix:Bug Fixes" "perf:Performance" "docs:Documentation" "refactor:Refactoring" "chore:Maintenance"; do
+              TYPE="${type_label%%:*}"
+              LABEL="${type_label##*:}"
+              COMMITS=$(git log "$RANGE" --pretty=format:"- %s (%h)" --grep="^${TYPE}" 2>/dev/null || true)
+              if [ -n "$COMMITS" ]; then
+                echo "### $LABEL"
+                echo ""
+                echo "$COMMITS"
+                echo ""
+              fi
+            done
+
+            # Ungrouped commits (no conventional prefix)
+            OTHER=$(git log "$RANGE" --pretty=format:"%s|%h" 2>/dev/null | grep -vE "^(feat|fix|perf|docs|refactor|chore|build|ci|test|style)(\(.*\))?:" || true)
+            if [ -n "$OTHER" ]; then
+              echo "### Other Changes"
+              echo ""
+              echo "$OTHER" | while IFS='|' read -r msg hash; do
+                echo "- $msg ($hash)"
+              done
+              echo ""
+            fi
+
+            echo "**Full Changelog**: https://github.com/$GITHUB_REPOSITORY/compare/${PREV_TAG:-$(git rev-list --max-parents=0 HEAD | head -1)}...${TAG}"
+            echo 'RELEASE_NOTES_EOF'
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Update release notes
+        run: |
+          gh release edit "${{ needs.prepare-release.outputs.tag }}" \
+            --repo "$GITHUB_REPOSITORY" \
+            --notes "${{ steps.notes.outputs.body }}"
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+
       - name: Clean up release assets (remove blockmaps)
         run: |
           TAG="${{ needs.prepare-release.outputs.tag }}"
