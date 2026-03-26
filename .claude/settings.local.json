@@ -1,0 +1,104 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"/Users/akc/.kanbai/hooks/kanbai-activity.sh\" working"
+          }
+        ]
+      },
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"/Users/akc/.kanbai/hooks/kanbai-autoapprove.sh\" "
+          }
+        ]
+      },
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"/Users/akc/.kanbai/hooks/kanbai-pixel-agents.sh\" toolStart"
+          }
+        ]
+      }
+    ],
+    "PermissionRequest": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"/Users/akc/.kanbai/hooks/kanbai-activity.sh\" ask"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"/Users/akc/.kanbai/hooks/kanbai-activity.sh\" working"
+          }
+        ]
+      },
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"/Users/akc/.kanbai/hooks/kanbai-pixel-agents.sh\" toolDone"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"/Users/akc/.kanbai/hooks/kanban-done.sh\" "
+          }
+        ]
+      },
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"/Users/akc/.kanbai/hooks/kanbai-activity.sh\" done"
+          }
+        ]
+      },
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"/Users/akc/.kanbai/hooks/kanbai-pixel-agents.sh\" turnEnd"
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"/Users/akc/.kanbai/hooks/kanbai-pixel-agents.sh\" sessionEnd"
+          }
+        ]
+      }
+    ]
+  }
+}
