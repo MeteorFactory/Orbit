@@ -15,10 +15,10 @@ on:
         description: "Branch to push static files to"
         type: string
         default: "gh-pages"
-      tag-prefix:
-        description: "Tag prefix for versioning (e.g. 'pages' -> pages/v0.0.X). Empty to skip tagging."
-        type: string
-        default: ""
+      enable-tagging:
+        description: "Create an incremental version tag (v0.0.X) on each deploy"
+        type: boolean
+        default: false
       node-version:
         description: "Node.js version to use"
         type: string
@@ -84,19 +84,17 @@ jobs:
 
       - name: Determine next version
         id: version
-        if: ${{ inputs.tag-prefix != '' }}
+        if: ${{ inputs.enable-tagging }}
         run: |
-          PREFIX="${{ inputs.tag-prefix }}"
-          LATEST_TAG=$(git tag -l "${PREFIX}/v0.0.*" --sort=-version:refname | head -1)
+          LATEST_TAG=$(git tag -l "v0.0.*" --sort=-version:refname | head -1)
           if [ -z "$LATEST_TAG" ]; then
             NEXT="0.0.1"
           else
-            PATCH=$(echo "$LATEST_TAG" | sed "s|${PREFIX}/v0\.0\.||")
+            PATCH=$(echo "$LATEST_TAG" | sed "s/v0\.0\.//")
             NEXT="0.0.$((PATCH + 1))"
           fi
-          TAG="${PREFIX}/v${NEXT}"
+          TAG="v${NEXT}"
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
-          echo "version=$NEXT" >> "$GITHUB_OUTPUT"
           echo "Next deploy version: $TAG"
 
       - name: Deploy to external repo
@@ -114,7 +112,7 @@ jobs:
           DEPLOY_TOKEN: ${{ steps.app-token.outputs.token || github.token }}
 
       - name: Create deploy tag
-        if: ${{ inputs.tag-prefix != '' }}
+        if: ${{ inputs.enable-tagging }}
         run: |
           git tag ${{ steps.version.outputs.tag }}
           git push origin ${{ steps.version.outputs.tag }}
