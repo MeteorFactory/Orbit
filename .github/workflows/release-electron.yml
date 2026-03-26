@@ -16,13 +16,10 @@ on:
         type: string
         default: "10"
     secrets:
-      GH_TOKEN:
-        description: "GitHub token for release creation and publishing"
-        required: false
-      MAC_CERTIFICATE:
+      MACOS_CERTIFICATE:
         description: "Base64-encoded macOS signing certificate (.p12)"
         required: false
-      MAC_CERTIFICATE_PASSWORD:
+      MACOS_CERTIFICATE_PWD:
         description: "Password for the macOS signing certificate"
         required: false
       APPLE_ID:
@@ -33,7 +30,7 @@ on:
         required: false
       APPLE_TEAM_ID:
         description: "Apple Developer Team ID"
-        required: true
+        required: false
 
 permissions:
   contents: write
@@ -111,7 +108,7 @@ jobs:
       - name: Verify signing credentials
         run: |
           if [ -z "$CSC_LINK" ]; then
-            echo "::error::MAC_CERTIFICATE secret is required for release builds."
+            echo "::error::MACOS_CERTIFICATE secret is required for release builds."
             exit 1
           fi
           if [ -z "$APPLE_TEAM_ID" ]; then
@@ -119,15 +116,15 @@ jobs:
             exit 1
           fi
         env:
-          CSC_LINK: ${{ secrets.MAC_CERTIFICATE }}
+          CSC_LINK: ${{ secrets.MACOS_CERTIFICATE }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
 
       - name: Build Electron app and publish (arm64 + x64)
         run: npx electron-builder --mac --arm64 --x64 --publish always
         env:
-          GH_TOKEN: ${{ secrets.GH_TOKEN }}
-          CSC_LINK: ${{ secrets.MAC_CERTIFICATE }}
-          CSC_KEY_PASSWORD: ${{ secrets.MAC_CERTIFICATE_PASSWORD }}
+          GH_TOKEN: ${{ github.token }}
+          CSC_LINK: ${{ secrets.MACOS_CERTIFICATE }}
+          CSC_KEY_PASSWORD: ${{ secrets.MACOS_CERTIFICATE_PWD }}
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
@@ -165,7 +162,7 @@ jobs:
         shell: bash
         run: npx electron-builder --win --x64 --publish always
         env:
-          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
 
   finalize-release:
     needs: [prepare-release, release-mac, release-win]
@@ -225,7 +222,7 @@ jobs:
             --repo "$GITHUB_REPOSITORY" \
             --notes "${{ steps.notes.outputs.body }}"
         env:
-          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
 
       - name: Clean up release assets (remove blockmaps)
         run: |
@@ -235,9 +232,9 @@ jobs:
             gh release delete-asset "$TAG" "$asset" --repo "$GITHUB_REPOSITORY" --yes
           done
         env:
-          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
 
       - name: Publish release (draft -> public)
         run: gh release edit ${{ needs.prepare-release.outputs.tag }} --repo "$GITHUB_REPOSITORY" --draft=false
         env:
-          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
