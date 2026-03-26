@@ -129,16 +129,12 @@ jobs:
       - name: Build universal binary
         run: |
           VERSION="${{ needs.prepare-release.outputs.version }}"
-          SIGN_ARGS=""
-          if [ -n "${SIGN_IDENTITY:-}" ]; then
-            SIGN_ARGS="--sign $SIGN_IDENTITY"
-          fi
           chmod +x scripts/build-release.sh
-          ./scripts/build-release.sh \
-            --arch universal \
-            --version "$VERSION" \
-            $SIGN_ARGS \
-            ${{ inputs.swift-build-flags }}
+          ARGS=(--arch universal --version "$VERSION")
+          if [ -n "${SIGN_IDENTITY:-}" ]; then
+            ARGS+=(--sign "$SIGN_IDENTITY")
+          fi
+          ./scripts/build-release.sh "${ARGS[@]}" ${{ inputs.swift-build-flags }}
 
       - name: Notarize app
         if: ${{ env.SIGN_IDENTITY != '' }}
@@ -162,12 +158,12 @@ jobs:
         if: ${{ inputs.create-dmg }}
         run: |
           VERSION="${{ needs.prepare-release.outputs.version }}"
-          SIGN_ARGS=""
-          if [ -n "${SIGN_IDENTITY:-}" ]; then
-            SIGN_ARGS="--sign $SIGN_IDENTITY"
-          fi
           chmod +x scripts/create-dmg.sh
-          ./scripts/create-dmg.sh --version "$VERSION" $SIGN_ARGS
+          ARGS=(--version "$VERSION")
+          if [ -n "${SIGN_IDENTITY:-}" ]; then
+            ARGS+=(--sign "$SIGN_IDENTITY")
+          fi
+          ./scripts/create-dmg.sh "${ARGS[@]}"
 
       - name: Upload release assets
         env:
