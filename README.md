@@ -39,6 +39,7 @@ jobs:
 | [`ci-node.yml`](templates/ci-node.yml) | Node.js CI with lint, typecheck, test, build (toggleable jobs, multi-OS) | [Details](docs/templates.md#ci-nodeyml) |
 | [`ci-electron.yml`](templates/ci-electron.yml) | Electron CI on macOS + Windows with lint, typecheck, test, build | [Details](docs/templates.md#ci-electronyml) |
 | [`release-electron.yml`](templates/release-electron.yml) | Electron release with macOS code signing/notarization + Windows builds | [Details](docs/templates.md#release-electronyml) |
+| [`release-swift.yml`](templates/release-swift.yml) | Swift macOS app release with universal binary, DMG, code signing/notarization | [Details](docs/templates.md#release-swiftyml) |
 | [`deploy-pages.yml`](templates/deploy-pages.yml) | Deploy static files to GitHub Pages | [Details](docs/templates.md#deploy-pagesyml) |
 | [`docker-build.yml`](templates/docker-build.yml) | Docker build and push with Buildx, metadata tagging, and GHA caching | [Details](docs/templates.md#docker-buildyml) |
 
@@ -70,6 +71,7 @@ Pipelines/
     ci-node.yml            # Node.js CI
     ci-electron.yml        # Electron CI (multi-OS)
     release-electron.yml   # Electron release (signing + publish)
+    release-swift.yml      # Swift macOS app release (universal binary + DMG)
     deploy-pages.yml       # GitHub Pages deployment
     docker-build.yml       # Docker build & push
   actions/                 # Custom composite actions

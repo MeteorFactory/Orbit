@@ -1,0 +1,252 @@
+name: Release Swift macOS App
+
+on:
+  workflow_call:
+    inputs:
+      app-name:
+        description: "Name of the macOS application"
+        type: string
+        required: true
+      info-plist-path:
+        description: "Relative path to Info.plist (used for version extraction)"
+        type: string
+        default: "Info.plist"
+      entitlements-path:
+        description: "Relative path to entitlements plist"
+        type: string
+        default: "build/entitlements.mac.plist"
+      xcode-version:
+        description: "Xcode version to use"
+        type: string
+        default: "16.2"
+      swift-build-flags:
+        description: "Extra flags for swift build"
+        type: string
+        default: ""
+      create-dmg:
+        description: "Create DMG installer"
+        type: boolean
+        default: true
+    secrets:
+      MACOS_CERTIFICATE:
+        description: "Base64-encoded macOS signing certificate (.p12)"
+        required: false
+      MACOS_CERTIFICATE_PWD:
+        description: "Password for the macOS signing certificate"
+        required: false
+      APPLE_ID:
+        description: "Apple ID for notarization"
+        required: false
+      APPLE_APP_SPECIFIC_PASSWORD:
+        description: "App-specific password for Apple notarization"
+        required: false
+      APPLE_TEAM_ID:
+        description: "Apple Developer Team ID"
+        required: false
+
+permissions:
+  contents: write
+
+jobs:
+  prepare-release:
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.version.outputs.tag }}
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Determine next version
+        id: version
+        run: |
+          # Extract version from Info.plist (CFBundleShortVersionString)
+          VERSION=$(grep -A1 'CFBundleShortVersionString' "${{ inputs.info-plist-path }}" | grep '<string>' | sed 's/.*<string>\(.*\)<\/string>.*/\1/')
+          if [ -z "$VERSION" ]; then
+            echo "::error::Could not extract version from ${{ inputs.info-plist-path }}"
+            exit 1
+          fi
+          MAJOR_MINOR=$(echo "$VERSION" | sed 's/\.[0-9]*$//')
+          LATEST_TAG=$(git tag -l "v${MAJOR_MINOR}.*" | sort -V | tail -1)
+          if [ -z "$LATEST_TAG" ]; then
+            NEXT_VERSION="$VERSION"
+          else
+            LATEST_PATCH=$(echo "$LATEST_TAG" | sed "s/v${MAJOR_MINOR}\.//")
+            NEXT_PATCH=$((LATEST_PATCH + 1))
+            NEXT_VERSION="${MAJOR_MINOR}.${NEXT_PATCH}"
+          fi
+          TAG="v${NEXT_VERSION}"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "version=$NEXT_VERSION" >> "$GITHUB_OUTPUT"
+          echo "Next version: $TAG"
+
+      - name: Get last commit author
+        id: author
+        run: |
+          echo "name=$(git log -1 --format='%an')" >> "$GITHUB_OUTPUT"
+          echo "email=$(git log -1 --format='%ae')" >> "$GITHUB_OUTPUT"
+
+      - name: Create and push tag
+        run: |
+          git config user.name "${{ steps.author.outputs.name }}"
+          git config user.email "${{ steps.author.outputs.email }}"
+          git tag ${{ steps.version.outputs.tag }}
+          git push origin ${{ steps.version.outputs.tag }}
+
+  release-mac:
+    needs: [prepare-release]
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select Xcode version
+        run: sudo xcode-select -s /Applications/Xcode_${{ inputs.xcode-version }}.app/Contents/Developer
+
+      - name: Import signing certificate
+        if: ${{ env.CSC_LINK != '' }}
+        env:
+          CSC_LINK: ${{ secrets.MACOS_CERTIFICATE }}
+          CSC_KEY_PASSWORD: ${{ secrets.MACOS_CERTIFICATE_PWD }}
+        run: |
+          CERTIFICATE_PATH=$RUNNER_TEMP/certificate.p12
+          KEYCHAIN_PATH=$RUNNER_TEMP/build.keychain-db
+          KEYCHAIN_PASSWORD=$(openssl rand -base64 32)
+
+          echo "$CSC_LINK" | base64 --decode > "$CERTIFICATE_PATH"
+
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security import "$CERTIFICATE_PATH" -P "$CSC_KEY_PASSWORD" -A -t cert -f pkcs12 -k "$KEYCHAIN_PATH"
+          security set-key-partition-list -S apple-tool:,apple: -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security list-keychains -d user -s "$KEYCHAIN_PATH" login.keychain-db
+
+          # Extract signing identity
+          IDENTITY=$(security find-identity -v -p codesigning "$KEYCHAIN_PATH" | head -1 | sed 's/.*"\(.*\)".*/\1/')
+          echo "SIGN_IDENTITY=$IDENTITY" >> "$GITHUB_ENV"
+
+      - name: Build universal binary
+        run: |
+          VERSION="${{ needs.prepare-release.outputs.version }}"
+          SIGN_ARGS=""
+          if [ -n "${SIGN_IDENTITY:-}" ]; then
+            SIGN_ARGS="--sign $SIGN_IDENTITY"
+          fi
+          chmod +x scripts/build-release.sh
+          ./scripts/build-release.sh \
+            --arch universal \
+            --version "$VERSION" \
+            $SIGN_ARGS \
+            ${{ inputs.swift-build-flags }}
+
+      - name: Notarize app
+        if: ${{ env.SIGN_IDENTITY != '' }}
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          APP_BUNDLE=".build/release-output/${{ inputs.app-name }}.app"
+          ZIP_PATH=".build/release-output/${{ inputs.app-name }}-notarize.zip"
+          ditto -c -k --keepParent "$APP_BUNDLE" "$ZIP_PATH"
+          xcrun notarytool submit "$ZIP_PATH" \
+            --apple-id "$APPLE_ID" \
+            --password "$APPLE_APP_SPECIFIC_PASSWORD" \
+            --team-id "$APPLE_TEAM_ID" \
+            --wait
+          xcrun stapler staple "$APP_BUNDLE"
+          rm "$ZIP_PATH"
+
+      - name: Create DMG
+        if: ${{ inputs.create-dmg }}
+        run: |
+          VERSION="${{ needs.prepare-release.outputs.version }}"
+          SIGN_ARGS=""
+          if [ -n "${SIGN_IDENTITY:-}" ]; then
+            SIGN_ARGS="--sign $SIGN_IDENTITY"
+          fi
+          chmod +x scripts/create-dmg.sh
+          ./scripts/create-dmg.sh --version "$VERSION" $SIGN_ARGS
+
+      - name: Upload release assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="${{ needs.prepare-release.outputs.tag }}"
+          VERSION="${{ needs.prepare-release.outputs.version }}"
+          APP_NAME="${{ inputs.app-name }}"
+
+          # Create draft release
+          gh release create "$TAG" --draft --title "$APP_NAME $TAG"
+
+          # Upload DMG if it exists
+          DMG_PATH=".build/release-output/${APP_NAME}-${VERSION}.dmg"
+          if [ -f "$DMG_PATH" ]; then
+            gh release upload "$TAG" "$DMG_PATH"
+          fi
+
+          # Also upload a zip of the .app
+          APP_ZIP=".build/release-output/${APP_NAME}-${VERSION}-mac.zip"
+          ditto -c -k --keepParent ".build/release-output/${APP_NAME}.app" "$APP_ZIP"
+          gh release upload "$TAG" "$APP_ZIP"
+
+  finalize-release:
+    needs: [prepare-release, release-mac]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Generate release notes from commits
+        id: notes
+        run: |
+          TAG="${{ needs.prepare-release.outputs.tag }}"
+          PREV_TAG=$(git tag -l 'v*' --sort=-version:refname | grep -v "^${TAG}$" | head -1)
+          if [ -z "$PREV_TAG" ]; then
+            RANGE="HEAD"
+          else
+            RANGE="${PREV_TAG}..${TAG}"
+          fi
+
+          {
+            echo 'body<<RELEASE_NOTES_EOF'
+            echo "## What's Changed"
+            echo ""
+
+            for type_label in "feat:Features" "fix:Bug Fixes" "perf:Performance" "docs:Documentation" "refactor:Refactoring" "chore:Maintenance"; do
+              TYPE="${type_label%%:*}"
+              LABEL="${type_label##*:}"
+              COMMITS=$(git log "$RANGE" --no-merges --pretty=format:"- %s (%h)" --grep="^${TYPE}" 2>/dev/null || true)
+              if [ -n "$COMMITS" ]; then
+                echo "### $LABEL"
+                echo ""
+                echo "$COMMITS"
+                echo ""
+              fi
+            done
+
+            OTHER=$(git log "$RANGE" --no-merges --pretty=format:"%s|%h" 2>/dev/null | grep -vE "^(feat|fix|perf|docs|refactor|chore|build|ci|test|style)(\(.*\))?:" || true)
+            if [ -n "$OTHER" ]; then
+              echo "### Other Changes"
+              echo ""
+              echo "$OTHER" | while IFS='|' read -r msg hash; do
+                echo "- $msg ($hash)"
+              done
+              echo ""
+            fi
+
+            echo "**Full Changelog**: https://github.com/$GITHUB_REPOSITORY/compare/${PREV_TAG:-$(git rev-list --max-parents=0 HEAD | head -1)}...${TAG}"
+            echo 'RELEASE_NOTES_EOF'
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Update and publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="${{ needs.prepare-release.outputs.tag }}"
+          gh release edit "$TAG" \
+            --repo "$GITHUB_REPOSITORY" \
+            --notes "${{ steps.notes.outputs.body }}" \
+            --draft=false
