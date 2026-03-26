@@ -1,0 +1,88 @@
+name: Deploy to External GitHub Pages
+
+on:
+  workflow_call:
+    inputs:
+      path:
+        description: "Path to the static files to deploy"
+        type: string
+        required: true
+      target-repo:
+        description: "Target repository (owner/repo) to deploy Pages to"
+        type: string
+        required: true
+      target-branch:
+        description: "Branch to push static files to"
+        type: string
+        default: "gh-pages"
+      node-version:
+        description: "Node.js version to use"
+        type: string
+        default: "22"
+      package-manager:
+        description: "Package manager to use (npm or pnpm)"
+        type: string
+        default: "npm"
+      pnpm-version:
+        description: "pnpm version (only used when package-manager is pnpm)"
+        type: string
+        default: "10"
+      build-command:
+        description: "Build command to run before deploying"
+        type: string
+        default: ""
+    secrets:
+      APP_ID:
+        description: "GitHub App ID for cross-repo access"
+        required: false
+      APP_PRIVATE_KEY:
+        description: "GitHub App private key for cross-repo access"
+        required: false
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Enable pnpm via corepack
+        if: ${{ inputs.package-manager == 'pnpm' }}
+        run: corepack enable && corepack prepare pnpm@${{ inputs.pnpm-version }} --activate
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ inputs.node-version }}
+          cache: ${{ inputs.package-manager }}
+
+      - run: npm ci
+        if: ${{ inputs.package-manager == 'npm' }}
+      - run: pnpm install --frozen-lockfile
+        if: ${{ inputs.package-manager == 'pnpm' }}
+
+      - name: Generate GitHub App token
+        id: app-token
+        if: ${{ secrets.APP_ID != '' }}
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+
+      - name: Build
+        if: ${{ inputs.build-command != '' }}
+        run: ${{ inputs.build-command }}
+        env:
+          GITHUB_TOKEN: ${{ steps.app-token.outputs.token || github.token }}
+
+      - name: Deploy to external repo
+        run: |
+          cd ${{ inputs.path }}
+          touch .nojekyll
+          git init
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -b ${{ inputs.target-branch }}
+          git add -A
+          git commit -m "deploy: update pages from ${{ github.repository }}@${{ github.sha }}"
+          git push --force "https://x-access-token:${DEPLOY_TOKEN}@github.com/${{ inputs.target-repo }}.git" ${{ inputs.target-branch }}
+        env:
+          DEPLOY_TOKEN: ${{ steps.app-token.outputs.token || github.token }}
