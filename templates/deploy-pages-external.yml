@@ -68,6 +68,10 @@ jobs:
       - run: pnpm install --frozen-lockfile
         if: ${{ inputs.package-manager == 'pnpm' }}
 
+      - name: Extract target repo name
+        id: target
+        run: echo "repo=$(echo '${{ inputs.target-repo }}' | cut -d/ -f2)" >> "$GITHUB_OUTPUT"
+
       - name: Generate GitHub App token
         id: app-token
         uses: actions/create-github-app-token@v1
@@ -75,6 +79,8 @@ jobs:
         with:
           app-id: ${{ secrets.APP_ID }}
           private-key: ${{ secrets.APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: ${{ steps.target.outputs.repo }}
 
       - name: Build
         if: ${{ inputs.build-command != '' }}
