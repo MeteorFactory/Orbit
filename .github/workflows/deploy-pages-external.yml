@@ -15,6 +15,10 @@ on:
         description: "Branch to push static files to"
         type: string
         default: "gh-pages"
+      tag-prefix:
+        description: "Tag prefix for versioning (e.g. 'pages' -> pages/v0.0.X). Empty to skip tagging."
+        type: string
+        default: ""
       node-version:
         description: "Node.js version to use"
         type: string
@@ -39,11 +43,16 @@ on:
         description: "GitHub App private key for cross-repo access"
         required: false
 
+permissions:
+  contents: write
+
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Enable pnpm via corepack
         if: ${{ inputs.package-manager == 'pnpm' }}
@@ -73,6 +82,23 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ steps.app-token.outputs.token || github.token }}
 
+      - name: Determine next version
+        id: version
+        if: ${{ inputs.tag-prefix != '' }}
+        run: |
+          PREFIX="${{ inputs.tag-prefix }}"
+          LATEST_TAG=$(git tag -l "${PREFIX}/v0.0.*" --sort=-version:refname | head -1)
+          if [ -z "$LATEST_TAG" ]; then
+            NEXT="0.0.1"
+          else
+            PATCH=$(echo "$LATEST_TAG" | sed "s|${PREFIX}/v0\.0\.||")
+            NEXT="0.0.$((PATCH + 1))"
+          fi
+          TAG="${PREFIX}/v${NEXT}"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "version=$NEXT" >> "$GITHUB_OUTPUT"
+          echo "Next deploy version: $TAG"
+
       - name: Deploy to external repo
         run: |
           cd ${{ inputs.path }}
@@ -86,3 +112,9 @@ jobs:
           git push --force "https://x-access-token:${DEPLOY_TOKEN}@github.com/${{ inputs.target-repo }}.git" ${{ inputs.target-branch }}
         env:
           DEPLOY_TOKEN: ${{ steps.app-token.outputs.token || github.token }}
+
+      - name: Create deploy tag
+        if: ${{ inputs.tag-prefix != '' }}
+        run: |
+          git tag ${{ steps.version.outputs.tag }}
+          git push origin ${{ steps.version.outputs.tag }}
