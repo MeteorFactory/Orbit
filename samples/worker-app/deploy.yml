@@ -1,0 +1,29 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    if: github.event_name != 'pull_request'
+    uses: MeteorFactory/Orbit/.github/workflows/release-worker.yml@main
+    with:
+      worker-name: my-worker
+      wrangler-env: production
+    secrets: inherit
+
+  dry-run:
+    if: github.event_name == 'pull_request'
+    uses: MeteorFactory/Orbit/.github/workflows/release-worker.yml@main
+    with:
+      worker-name: my-worker
+      dry-run: true
+    secrets: inherit

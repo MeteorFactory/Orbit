@@ -27,6 +27,10 @@ on:
         description: "Create DMG installer"
         type: boolean
         default: true
+      pre-build-script:
+        description: "Optional script to run before swift build (e.g., config generation from secrets)"
+        type: string
+        default: ""
     secrets:
       MACOS_CERTIFICATE:
         description: "Base64-encoded macOS signing certificate (.p12)"
@@ -125,6 +129,12 @@ jobs:
           # Extract signing identity
           IDENTITY=$(security find-identity -v -p codesigning "$KEYCHAIN_PATH" | head -1 | sed 's/.*"\(.*\)".*/\1/')
           echo "SIGN_IDENTITY=$IDENTITY" >> "$GITHUB_ENV"
+
+      - name: Pre-build setup
+        if: ${{ inputs.pre-build-script != '' }}
+        run: |
+          chmod +x ${{ inputs.pre-build-script }}
+          ./${{ inputs.pre-build-script }}
 
       - name: Build universal binary
         run: |
