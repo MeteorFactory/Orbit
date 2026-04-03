@@ -1,0 +1,5 @@
+# Codex configuration for Pipelines
+# Instructions are in AGENTS.md at project root
+
+[approval]
+auto_approve_read = true
