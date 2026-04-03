@@ -20,6 +20,17 @@ jobs:
       wrangler-env: production
     secrets: inherit
 
+  # Example with integration tests (requires INTEGRATION_TEST_API_KEY secret)
+  # deploy-with-tests:
+  #   if: github.event_name != 'pull_request'
+  #   uses: MeteorFactory/Orbit/.github/workflows/release-worker.yml@main
+  #   with:
+  #     worker-name: my-worker
+  #     wrangler-env: production
+  #     integration-test-collection: test/api.postman.json
+  #     integration-test-url: https://my-worker.workers.dev
+  #   secrets: inherit
+
   dry-run:
     if: github.event_name == 'pull_request'
     uses: MeteorFactory/Orbit/.github/workflows/release-worker.yml@main

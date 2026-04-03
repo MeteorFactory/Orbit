@@ -1,5 +1,12 @@
 {
   "codeAssistant": {
     "instructionsFile": "GEMINI.md"
+  },
+  "hooks": {
+    "notify": [
+      "bash",
+      "/Users/akc/.kanbai/hooks/kanbai-activity.sh",
+      "working"
+    ]
   }
 }

@@ -3,3 +3,4 @@
 
 [approval]
 auto_approve_read = true
+notify = ["bash", "/Users/akc/.kanbai/hooks/kanbai-activity.sh", "working"]

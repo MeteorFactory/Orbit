@@ -83,8 +83,14 @@ jobs:
 
       - name: Integration tests
         if: ${{ inputs.integration-test-collection != '' && !inputs.dry-run }}
+        env:
+          INTEGRATION_TEST_API_KEY: ${{ secrets.INTEGRATION_TEST_API_KEY }}
         run: |
+          if [ -z "$INTEGRATION_TEST_API_KEY" ]; then
+            echo "::error::INTEGRATION_TEST_API_KEY secret is required for integration tests but was not provided"
+            exit 1
+          fi
           npx newman run ${{ inputs.integration-test-collection }} \
             --env-var "baseUrl=${{ inputs.integration-test-url }}" \
-            --env-var "apiKey=${{ secrets.INTEGRATION_TEST_API_KEY }}" \
+            --env-var "apiKey=$INTEGRATION_TEST_API_KEY" \
             --delay-request 500

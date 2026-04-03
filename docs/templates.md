@@ -306,3 +306,65 @@ jobs:
       REGISTRY_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
       REGISTRY_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
 ```
+
+---
+
+## release-worker.yml
+
+Deploys a Cloudflare Worker with optional post-deploy integration tests via Newman (Postman CLI).
+
+### Inputs
+
+| Input | Type | Required | Default | Description |
+|-------|------|----------|---------|-------------|
+| `worker-name` | string | **yes** | -- | Cloudflare Worker name |
+| `wrangler-env` | string | no | `"production"` | Deployment environment (production/staging) |
+| `node-version` | string | no | `"20"` | Node.js version |
+| `dry-run` | boolean | no | `false` | Run deploy in dry-run mode |
+| `pre-deploy-script` | string | no | `""` | Optional script to run before deploy |
+| `integration-test-collection` | string | no | `""` | Path to a Postman/Newman collection for post-deploy tests |
+| `integration-test-url` | string | no | `""` | Base URL to test against |
+
+### Secrets
+
+| Secret | Required | Description |
+|--------|----------|-------------|
+| `CLOUDFLARE_API_TOKEN` | yes | Cloudflare API token with Workers permissions |
+| `CLOUDFLARE_ACCOUNT_ID` | yes | Cloudflare account ID |
+| `INTEGRATION_TEST_API_KEY` | no | API key for integration tests. **Required when `integration-test-collection` is set** — the step will fail with a clear error if missing. |
+
+### Jobs
+
+1. **deploy** -- Installs dependencies, runs lint + tests, deploys the worker (or dry-run), then optionally runs integration tests.
+
+### Integration Tests
+
+When `integration-test-collection` is provided, the workflow runs Newman after deployment with:
+- `baseUrl` overridden to `integration-test-url`
+- `apiKey` overridden to `INTEGRATION_TEST_API_KEY`
+- 500ms delay between requests
+
+The `INTEGRATION_TEST_API_KEY` secret **must** be configured in your repository when using integration tests. The step validates this and fails fast with a clear error if the key is missing.
+
+### Example
+
+```yaml
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    uses: MeteorFactory/Orbit/.github/workflows/release-worker.yml@main
+    with:
+      worker-name: stargate
+      wrangler-env: production
+      integration-test-collection: test/stargate.postman.json
+      integration-test-url: https://stargate.meteor-factory.workers.dev
+    secrets:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      INTEGRATION_TEST_API_KEY: ${{ secrets.STARGATE_API_KEY }}
+```

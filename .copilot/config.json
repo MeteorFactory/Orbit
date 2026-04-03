@@ -2,5 +2,12 @@
   "version": 1,
   "instructions": {
     "file": ".github/copilot-instructions.md"
+  },
+  "hooks": {
+    "notify": [
+      "bash",
+      "/Users/akc/.kanbai/hooks/kanbai-activity.sh",
+      "working"
+    ]
   }
 }
