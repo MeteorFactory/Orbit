@@ -42,6 +42,7 @@ jobs:
 | [`release-swift.yml`](templates/release-swift.yml) | Swift macOS app release with universal binary, DMG, code signing/notarization | [Details](docs/templates.md#release-swiftyml) |
 | [`deploy-pages.yml`](templates/deploy-pages.yml) | Deploy static files to GitHub Pages | [Details](docs/templates.md#deploy-pagesyml) |
 | [`docker-build.yml`](templates/docker-build.yml) | Docker build and push with Buildx, metadata tagging, and GHA caching | [Details](docs/templates.md#docker-buildyml) |
+| [`deploy-railway.yml`](templates/deploy-railway.yml) | Deploy to Railway via CLI with optional health wait | [Details](docs/templates.md#deploy-railwayyml) |
 
 ## Custom Actions
 
