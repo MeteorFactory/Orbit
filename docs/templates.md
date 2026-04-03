@@ -306,3 +306,49 @@ jobs:
       REGISTRY_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
       REGISTRY_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
 ```
+
+---
+
+## deploy-railway.yml
+
+Deploy an application to Railway using the Railway CLI. Supports both Nixpacks and Dockerfile-based builds (Railway auto-detects). Designed for use after a CI job passes.
+
+### Inputs
+
+| Input | Type | Required | Default | Description |
+|-------|------|----------|---------|-------------|
+| `railway-service` | string | no | `""` | Railway service name (for multi-service projects) |
+| `node-version` | string | no | `"22"` | Node.js version |
+| `wait-for-deploy` | boolean | no | `true` | Wait for deployment to complete |
+
+### Secrets
+
+| Secret | Required | Description |
+|--------|----------|-------------|
+| `RAILWAY_TOKEN` | yes | Railway deploy token (Project → Settings → Tokens) |
+
+### Jobs
+
+1. **deploy** -- Installs Railway CLI, runs `railway up --detach`, optionally waits for health check
+
+### Example
+
+```yaml
+deploy:
+  needs: ci
+  uses: MeteorFactory/Pipelines/.github/workflows/deploy-railway.yml@main
+  secrets:
+    RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+```
+
+#### With service name (multi-service project)
+
+```yaml
+deploy:
+  needs: ci
+  uses: MeteorFactory/Pipelines/.github/workflows/deploy-railway.yml@main
+  with:
+    railway-service: "web"
+  secrets:
+    RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+```

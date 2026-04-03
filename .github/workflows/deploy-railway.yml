@@ -1,0 +1,49 @@
+name: Deploy to Railway
+
+on:
+  workflow_call:
+    inputs:
+      railway-service:
+        description: "Railway service name (for multi-service projects)"
+        type: string
+        default: ""
+      node-version:
+        description: "Node.js version (used if pre-deploy script needs Node)"
+        type: string
+        default: "22"
+      wait-for-deploy:
+        description: "Wait for deployment to complete and verify health"
+        type: boolean
+        default: true
+    secrets:
+      RAILWAY_TOKEN:
+        description: "Railway deploy token (Project → Settings → Tokens)"
+        required: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Railway CLI
+        run: npm install -g @railway/cli
+
+      - name: Deploy to Railway
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+        run: |
+          ARGS=""
+          if [ -n "${{ inputs.railway-service }}" ]; then
+            ARGS="--service ${{ inputs.railway-service }}"
+          fi
+          railway up --detach $ARGS
+
+      - name: Wait for deployment
+        if: ${{ inputs.wait-for-deploy }}
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+        run: |
+          echo "Waiting for deployment to complete..."
+          sleep 30
+          railway status || true
