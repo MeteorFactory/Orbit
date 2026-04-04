@@ -19,6 +19,10 @@ on:
         description: "JSON array of runner OS labels"
         type: string
         default: '["ubuntu-latest"]'
+      post-install:
+        description: "Command to run after install (e.g. prisma generate)"
+        type: string
+        default: ""
       run-lint:
         description: "Run lint job"
         type: boolean
@@ -56,6 +60,9 @@ jobs:
         if: ${{ inputs.package-manager == 'npm' }}
       - run: pnpm install --frozen-lockfile
         if: ${{ inputs.package-manager == 'pnpm' }}
+      - name: Post-install
+        if: ${{ inputs.post-install != '' }}
+        run: ${{ inputs.post-install }}
       - run: ${{ inputs.package-manager }} run lint
 
   typecheck:
@@ -77,6 +84,9 @@ jobs:
         if: ${{ inputs.package-manager == 'npm' }}
       - run: pnpm install --frozen-lockfile
         if: ${{ inputs.package-manager == 'pnpm' }}
+      - name: Post-install
+        if: ${{ inputs.post-install != '' }}
+        run: ${{ inputs.post-install }}
       - run: ${{ inputs.package-manager }} run typecheck
 
   test:
@@ -98,6 +108,9 @@ jobs:
         if: ${{ inputs.package-manager == 'npm' }}
       - run: pnpm install --frozen-lockfile
         if: ${{ inputs.package-manager == 'pnpm' }}
+      - name: Post-install
+        if: ${{ inputs.post-install != '' }}
+        run: ${{ inputs.post-install }}
       - run: ${{ inputs.package-manager }} run test
 
   build:
@@ -119,4 +132,7 @@ jobs:
         if: ${{ inputs.package-manager == 'npm' }}
       - run: pnpm install --frozen-lockfile
         if: ${{ inputs.package-manager == 'pnpm' }}
+      - name: Post-install
+        if: ${{ inputs.post-install != '' }}
+        run: ${{ inputs.post-install }}
       - run: ${{ inputs.package-manager }} run build
