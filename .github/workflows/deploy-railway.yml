@@ -7,6 +7,10 @@ on:
         description: "Railway service name (for multi-service projects)"
         type: string
         default: ""
+      railway-project:
+        description: "Railway project ID (required when using a team token)"
+        type: string
+        default: ""
       node-version:
         description: "Node.js version (used if pre-deploy script needs Node)"
         type: string
@@ -17,7 +21,7 @@ on:
         default: true
     secrets:
       RAILWAY_TOKEN:
-        description: "Railway deploy token (Project → Settings → Tokens)"
+        description: "Railway deploy token (Project or Team token)"
         required: true
 
 jobs:
@@ -34,8 +38,11 @@ jobs:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
         run: |
           ARGS=""
+          if [ -n "${{ inputs.railway-project }}" ]; then
+            ARGS="--project ${{ inputs.railway-project }}"
+          fi
           if [ -n "${{ inputs.railway-service }}" ]; then
-            ARGS="--service ${{ inputs.railway-service }}"
+            ARGS="$ARGS --service ${{ inputs.railway-service }}"
           fi
           railway up --detach $ARGS
 
@@ -46,4 +53,8 @@ jobs:
         run: |
           echo "Waiting for deployment to complete..."
           sleep 30
-          railway status || true
+          ARGS=""
+          if [ -n "${{ inputs.railway-project }}" ]; then
+            ARGS="--project ${{ inputs.railway-project }}"
+          fi
+          railway status $ARGS || true
