@@ -4,11 +4,7 @@ on:
   workflow_call:
     inputs:
       railway-service:
-        description: "Railway service name (for multi-service projects)"
-        type: string
-        default: ""
-      railway-project:
-        description: "Railway project ID (required when using a team token)"
+        description: "Railway service name (created if it doesn't exist)"
         type: string
         default: ""
       node-version:
@@ -38,11 +34,8 @@ jobs:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
         run: |
           ARGS=""
-          if [ -n "${{ inputs.railway-project }}" ]; then
-            ARGS="--project ${{ inputs.railway-project }}"
-          fi
           if [ -n "${{ inputs.railway-service }}" ]; then
-            ARGS="$ARGS --service ${{ inputs.railway-service }}"
+            ARGS="--service ${{ inputs.railway-service }}"
           fi
           railway up --detach $ARGS
 
@@ -53,8 +46,4 @@ jobs:
         run: |
           echo "Waiting for deployment to complete..."
           sleep 30
-          ARGS=""
-          if [ -n "${{ inputs.railway-project }}" ]; then
-            ARGS="--project ${{ inputs.railway-project }}"
-          fi
-          railway status $ARGS || true
+          railway status || true
