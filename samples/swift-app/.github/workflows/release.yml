@@ -1,0 +1,92 @@
+# ============================================================================
+# Sample: Release a macOS Swift application
+# ============================================================================
+#
+# This workflow calls the reusable Release Swift template from
+# MeteorFactory/Orbit. It handles:
+#   - Version extraction from Info.plist (auto-increment patch)
+#   - Git tag creation and push
+#   - Universal binary build (arm64 + x64) via scripts/build-release.sh
+#   - macOS code signing and notarization
+#   - DMG installer creation via scripts/create-dmg.sh
+#   - GitHub Release with .dmg and .zip artifacts
+#   - Auto-generated release notes from commit history
+#
+# Trigger:
+#   Manual dispatch only (workflow_dispatch) — you choose when to release.
+#
+# Prerequisites — Repository Structure:
+#   Info.plist                  — Contains CFBundleShortVersionString (e.g., "1.2.0")
+#   build/entitlements.mac.plist — App entitlements for code signing
+#   scripts/build-release.sh   — Build script accepting --arch, --version, --sign flags
+#   scripts/create-dmg.sh      — DMG creation script accepting --version, --sign flags
+#
+# Prerequisites — Repository Secrets (for code signing):
+#   MACOS_CERTIFICATE             — Base64-encoded .p12 signing certificate
+#   MACOS_CERTIFICATE_PWD         — Password for the .p12 certificate
+#   APPLE_ID                      — Apple ID email for notarization
+#   APPLE_APP_SPECIFIC_PASSWORD   — App-specific password (appleid.apple.com)
+#   APPLE_TEAM_ID                 — Apple Developer Team ID
+#
+# How to encode your macOS certificate:
+#   base64 -i DeveloperID.p12 | pbcopy
+#   Then paste the value into the MACOS_CERTIFICATE secret.
+#
+# Note: All signing secrets are optional. Without them, the app is built
+# unsigned (useful for development/testing releases).
+#
+# Usage:
+#   Copy this file into your Swift project at .github/workflows/release.yml
+#   Adjust inputs (app-name, paths) to match your project layout.
+# ============================================================================
+
+name: Release
+
+# Manual trigger — click "Run workflow" in the Actions tab
+on:
+  workflow_dispatch:
+
+# Alternative: trigger on version tags
+# on:
+#   push:
+#     tags:
+#       - 'v*'
+
+jobs:
+  release:
+    uses: MeteorFactory/Orbit/.github/workflows/release-swift.yml@main
+    with:
+      # Name of the macOS application (must match your .app bundle name)
+      app-name: "MyApp"
+
+      # Path to Info.plist for version extraction.
+      # The template reads CFBundleShortVersionString to determine the version.
+      info-plist-path: "Info.plist"
+
+      # Path to entitlements file for code signing.
+      # Required for sandboxed apps or apps using restricted capabilities.
+      entitlements-path: "build/entitlements.mac.plist"
+
+      # Xcode version to use on the macOS runner.
+      # Must match the version available on macos-latest.
+      xcode-version: "16.2"
+
+      # Extra flags passed to swift build (e.g., "-c release" is already implied).
+      # Use for custom SPM flags or conditional compilation settings.
+      swift-build-flags: ""
+
+      # Create a .dmg installer alongside the .zip.
+      # Requires scripts/create-dmg.sh in your repo.
+      create-dmg: true
+
+      # Optional: run a script before building (e.g., generate config files).
+      # pre-build-script: "scripts/pre-build.sh"
+
+    # macOS code signing and notarization secrets.
+    # All are optional — omit for unsigned builds.
+    secrets:
+      MACOS_CERTIFICATE: ${{ secrets.MACOS_CERTIFICATE }}
+      MACOS_CERTIFICATE_PWD: ${{ secrets.MACOS_CERTIFICATE_PWD }}
+      APPLE_ID: ${{ secrets.APPLE_ID }}
+      APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+      APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
