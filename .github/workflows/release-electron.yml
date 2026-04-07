@@ -19,6 +19,14 @@ on:
         description: "Release channel: latest (stable) or alpha (pre-release)"
         type: string
         default: "latest"
+      site-dispatch-repo:
+        description: "Repository to notify via repository_dispatch when release is published (e.g. owner/repo)"
+        type: string
+        default: ""
+      site-dispatch-event:
+        description: "Event type for the repository_dispatch (e.g. meteor-release)"
+        type: string
+        default: ""
     secrets:
       MACOS_CERTIFICATE:
         description: "Base64-encoded macOS signing certificate (.p12)"
@@ -34,6 +42,12 @@ on:
         required: false
       APPLE_TEAM_ID:
         description: "Apple Developer Team ID"
+        required: false
+      SITE_APP_ID:
+        description: "GitHub App ID for cross-repo site dispatch"
+        required: false
+      SITE_APP_PRIVATE_KEY:
+        description: "GitHub App private key for cross-repo site dispatch"
         required: false
 
 permissions:
@@ -274,3 +288,24 @@ jobs:
           gh release edit ${{ needs.prepare-release.outputs.tag }} --repo "$GITHUB_REPOSITORY" $FLAGS
         env:
           GH_TOKEN: ${{ github.token }}
+
+      - name: Generate cross-repo token for site dispatch
+        id: site-token
+        if: ${{ inputs.site-dispatch-repo != '' && inputs.site-dispatch-event != '' }}
+        uses: actions/create-github-app-token@v1
+        continue-on-error: true
+        with:
+          app-id: ${{ secrets.SITE_APP_ID }}
+          private-key: ${{ secrets.SITE_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: ${{ inputs.site-dispatch-repo }}
+
+      - name: Notify site to rebuild
+        if: ${{ steps.site-token.outcome == 'success' }}
+        run: |
+          gh api repos/${{ github.repository_owner }}/${{ inputs.site-dispatch-repo }}/dispatches \
+            -f event_type="${{ inputs.site-dispatch-event }}" \
+            -f "client_payload[tag]=${{ needs.prepare-release.outputs.tag }}" \
+            -f "client_payload[channel]=${{ needs.prepare-release.outputs.channel }}"
+        env:
+          GH_TOKEN: ${{ steps.site-token.outputs.token }}
