@@ -15,6 +15,10 @@ on:
         description: "pnpm version (only used when package-manager is pnpm)"
         type: string
         default: "10"
+      channel:
+        description: "Release channel: latest (stable) or alpha (pre-release)"
+        type: string
+        default: "latest"
     secrets:
       MACOS_CERTIFICATE:
         description: "Base64-encoded macOS signing certificate (.p12)"
@@ -41,6 +45,7 @@ jobs:
     outputs:
       tag: ${{ steps.version.outputs.tag }}
       version: ${{ steps.version.outputs.version }}
+      channel: ${{ steps.version.outputs.channel }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -49,20 +54,36 @@ jobs:
       - name: Determine next version
         id: version
         run: |
+          CHANNEL="${{ inputs.channel }}"
           VERSION=$(node -p "require('./package.json').version")
           MAJOR_MINOR=$(echo "$VERSION" | sed 's/\.[0-9]*$//')
-          LATEST_TAG=$(git tag -l "v${MAJOR_MINOR}.*" | sort -V | tail -1)
-          if [ -z "$LATEST_TAG" ]; then
-            NEXT_VERSION="$VERSION"
+
+          if [ "$CHANNEL" = "alpha" ]; then
+            LATEST_ALPHA=$(git tag -l "v${MAJOR_MINOR}.*-alpha.*" | sort -V | tail -1)
+            if [ -z "$LATEST_ALPHA" ]; then
+              NEXT_VERSION="${VERSION}-alpha.1"
+            else
+              ALPHA_NUM=$(echo "$LATEST_ALPHA" | sed 's/.*-alpha\.//')
+              NEXT_ALPHA=$((ALPHA_NUM + 1))
+              BASE=$(echo "$LATEST_ALPHA" | sed 's/-alpha\..*//' | sed 's/^v//')
+              NEXT_VERSION="${BASE}-alpha.${NEXT_ALPHA}"
+            fi
           else
-            LATEST_PATCH=$(echo "$LATEST_TAG" | sed "s/v${MAJOR_MINOR}\.//")
-            NEXT_PATCH=$((LATEST_PATCH + 1))
-            NEXT_VERSION="${MAJOR_MINOR}.${NEXT_PATCH}"
+            LATEST_TAG=$(git tag -l "v${MAJOR_MINOR}.*" | grep -v '\-' | sort -V | tail -1)
+            if [ -z "$LATEST_TAG" ]; then
+              NEXT_VERSION="$VERSION"
+            else
+              LATEST_PATCH=$(echo "$LATEST_TAG" | sed "s/v${MAJOR_MINOR}\.//")
+              NEXT_PATCH=$((LATEST_PATCH + 1))
+              NEXT_VERSION="${MAJOR_MINOR}.${NEXT_PATCH}"
+            fi
           fi
+
           TAG="v${NEXT_VERSION}"
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
           echo "version=$NEXT_VERSION" >> "$GITHUB_OUTPUT"
-          echo "Next version: $TAG"
+          echo "channel=$CHANNEL" >> "$GITHUB_OUTPUT"
+          echo "Next version: $TAG (channel: $CHANNEL)"
 
       - name: Get last commit author
         id: author
@@ -176,7 +197,12 @@ jobs:
         id: notes
         run: |
           TAG="${{ needs.prepare-release.outputs.tag }}"
-          PREV_TAG=$(git tag -l 'v*' --sort=-version:refname | grep -v "^${TAG}$" | head -1)
+          CHANNEL="${{ needs.prepare-release.outputs.channel }}"
+          if [ "$CHANNEL" = "alpha" ]; then
+            PREV_TAG=$(git tag -l 'v*-alpha.*' --sort=-version:refname | grep -v "^${TAG}$" | head -1)
+          else
+            PREV_TAG=$(git tag -l 'v*' --sort=-version:refname | grep -v '\-' | grep -v "^${TAG}$" | head -1)
+          fi
           if [ -z "$PREV_TAG" ]; then
             RANGE="HEAD"
           else
@@ -235,6 +261,12 @@ jobs:
           GH_TOKEN: ${{ github.token }}
 
       - name: Publish release (draft -> public)
-        run: gh release edit ${{ needs.prepare-release.outputs.tag }} --repo "$GITHUB_REPOSITORY" --draft=false
+        run: |
+          CHANNEL="${{ needs.prepare-release.outputs.channel }}"
+          FLAGS="--draft=false"
+          if [ "$CHANNEL" = "alpha" ]; then
+            FLAGS="$FLAGS --prerelease"
+          fi
+          gh release edit ${{ needs.prepare-release.outputs.tag }} --repo "$GITHUB_REPOSITORY" $FLAGS
         env:
           GH_TOKEN: ${{ github.token }}
