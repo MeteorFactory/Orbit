@@ -199,7 +199,11 @@ jobs:
           TAG="${{ needs.prepare-release.outputs.tag }}"
           CHANNEL="${{ needs.prepare-release.outputs.channel }}"
           if [ "$CHANNEL" = "alpha" ]; then
+            # For alpha: diff against previous alpha tag, or latest stable if none exists
             PREV_TAG=$(git tag -l 'v*-alpha.*' --sort=-version:refname | grep -v "^${TAG}$" | head -1)
+            if [ -z "$PREV_TAG" ]; then
+              PREV_TAG=$(git tag -l 'v*' --sort=-version:refname | grep -v '\-' | head -1)
+            fi
           else
             PREV_TAG=$(git tag -l 'v*' --sort=-version:refname | grep -v '\-' | grep -v "^${TAG}$" | head -1)
           fi
