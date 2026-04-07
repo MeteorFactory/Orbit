@@ -1,0 +1,72 @@
+# ============================================================================
+# Sample: Deploy static files to an external GitHub Pages repository
+# ============================================================================
+#
+# This workflow calls the reusable Deploy Pages External template from
+# MeteorFactory/Orbit. It handles:
+#   - Cross-repo deployment via GitHub App token
+#   - Optional build step before deploying
+#   - Optional incremental version tagging (v0.0.X)
+#   - Force-push to the target repo's gh-pages branch
+#
+# Use case:
+#   Your source code lives in a private repo, but the built site should
+#   be served from a separate public repo via GitHub Pages. This is common
+#   for documentation sites, marketing pages, or client deliverables.
+#
+# Prerequisites — Repository Secrets:
+#   APP_ID          — GitHub App ID with Contents:write on the target repo
+#   APP_PRIVATE_KEY — GitHub App private key (PEM format)
+#
+# How to set up a GitHub App for cross-repo access:
+#   1. Create a GitHub App (Settings > Developer settings > GitHub Apps)
+#   2. Grant "Contents: Read & write" repository permission
+#   3. Install the app on both source and target repositories
+#   4. Store the App ID and private key as repository secrets
+#
+# Usage:
+#   Copy this file into your source project at .github/workflows/deploy.yml
+#   Adjust inputs (target-repo, path, build-command) to match your setup.
+# ============================================================================
+
+name: Deploy to External Pages
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    uses: MeteorFactory/Orbit/.github/workflows/deploy-pages-external.yml@main
+    with:
+      # Directory containing the static files to deploy.
+      # This is evaluated after the build command runs (if any).
+      path: "dist"
+
+      # Target repository where GitHub Pages is served from.
+      # Format: "owner/repo"
+      target-repo: "my-org/my-site"
+
+      # Branch to push static files to in the target repo.
+      # Default: "gh-pages"
+      target-branch: "gh-pages"
+
+      # Optional: build command to run before deploying.
+      # Leave empty if your static files are already committed.
+      build-command: "npm run build"
+
+      # Optional: create an incremental version tag (v0.0.1, v0.0.2, ...)
+      # on each deploy. Useful for tracking deploy history.
+      enable-tagging: true
+
+      # Package manager — "npm" or "pnpm"
+      package-manager: "npm"
+
+      # Node.js version (used for build step and package install)
+      node-version: "22"
+
+    secrets:
+      # GitHub App credentials for cross-repo push access.
+      # If omitted, falls back to GITHUB_TOKEN (only works for same-repo).
+      APP_ID: ${{ secrets.APP_ID }}
+      APP_PRIVATE_KEY: ${{ secrets.APP_PRIVATE_KEY }}

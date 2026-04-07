@@ -1,0 +1,46 @@
+# ============================================================================
+# Sample: Deploy an application to Railway
+# ============================================================================
+#
+# This workflow calls the reusable Deploy Railway template from
+# MeteorFactory/Orbit. It handles:
+#   - Railway CLI installation
+#   - Deployment via `railway up`
+#   - Optional health check after deploy
+#
+# Railway auto-detects your project type (Node.js, Python, Go, Docker, etc.)
+# and builds accordingly using Nixpacks or your Dockerfile.
+#
+# Prerequisites — Repository Secrets:
+#   RAILWAY_TOKEN — Railway deploy token
+#                   (Project Dashboard > Settings > Tokens > Create Token)
+#
+# Usage:
+#   Copy this file into your project at .github/workflows/deploy.yml
+#   Adjust inputs (railway-service) to match your Railway project setup.
+# ============================================================================
+
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    uses: MeteorFactory/Orbit/.github/workflows/deploy-railway.yml@main
+    with:
+      # Railway service name — required for multi-service projects.
+      # Leave empty for single-service projects.
+      # Find the service name in Railway Dashboard > Project > Service name.
+      railway-service: ""
+
+      # Wait for deployment to complete and check health.
+      # Set to false for faster CI (fire-and-forget).
+      wait-for-deploy: true
+
+    secrets:
+      # Railway deploy token.
+      # Generate at: Railway Dashboard > Project > Settings > Tokens.
+      # Scope: project-level (recommended) or account-level.
+      RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}

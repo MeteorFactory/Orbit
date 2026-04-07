@@ -1,0 +1,46 @@
+# ============================================================================
+# Sample: Deploy a static site to GitHub Pages
+# ============================================================================
+#
+# This workflow calls the reusable Deploy Pages template from
+# MeteorFactory/Orbit. It handles:
+#   - GitHub Pages configuration
+#   - Static file upload as a GitHub Pages artifact
+#   - Deployment via the official actions/deploy-pages action
+#
+# Prerequisites:
+#   - GitHub Pages enabled in repo Settings > Pages > Source: "GitHub Actions"
+#   - Static files (HTML, CSS, JS, images) in a known directory
+#
+# Usage:
+#   Copy this file into your project at .github/workflows/deploy.yml
+#   Adjust the `path` input to point to your static files directory.
+# ============================================================================
+
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+
+# These permissions are required by the reusable workflow.
+# The deploy-pages action needs pages:write and id-token:write
+# to publish to GitHub Pages via OIDC.
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+jobs:
+  deploy:
+    uses: MeteorFactory/Orbit/.github/workflows/deploy-pages.yml@main
+    with:
+      # Path to the directory containing your static files.
+      # Default: "website"
+      #
+      # Common values:
+      #   "."         — repo root (HTML files at top level)
+      #   "dist"      — typical build output directory
+      #   "public"    — common static files directory
+      #   "site"      — documentation / site subfolder
+      path: "."

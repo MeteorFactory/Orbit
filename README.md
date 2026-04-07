@@ -84,7 +84,15 @@ Pipelines/
     templates.md           # Detailed template reference
     azure-keyvault.md      # Azure Key Vault setup guide
     getting-started.md     # Quick start guide
-  samples/                 # Usage examples (WIP)
+  samples/                 # Usage examples
+    node-app/              # Node.js CI sample
+    electron-app/          # Electron CI + release sample
+    docker-app/            # Docker build & push sample
+    worker-app/            # Cloudflare Worker deploy sample
+    static-site/           # GitHub Pages deploy sample
+    static-site-external/  # Cross-repo GitHub Pages sample
+    railway-app/           # Railway deploy sample
+    swift-app/             # Swift macOS release sample
 ```
 
 ## Contributing
