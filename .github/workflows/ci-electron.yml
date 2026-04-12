@@ -18,7 +18,7 @@ on:
       os-matrix:
         description: "JSON array of runner OS labels"
         type: string
-        default: '[["self-hosted", "macOS"], ["self-hosted", "Windows"]]'
+        default: '["self-hosted"]'
       run-lint:
         description: "Run lint job"
         type: boolean

@@ -3,6 +3,6 @@ on:
   workflow_call:
 jobs:
   test:
-    runs-on: [self-hosted, Linux]
+    runs-on: self-hosted
     steps:
       - run: echo "ok"
