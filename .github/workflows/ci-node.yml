@@ -18,7 +18,7 @@ on:
       os-matrix:
         description: "JSON array of runner OS labels"
         type: string
-        default: '["ubuntu-latest"]'
+        default: '[["self-hosted", "Linux"]]'
       post-install:
         description: "Command to run after install (e.g. prisma generate)"
         type: string

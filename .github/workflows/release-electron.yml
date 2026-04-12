@@ -55,7 +55,7 @@ permissions:
 
 jobs:
   prepare-release:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, Linux]
     outputs:
       tag: ${{ steps.version.outputs.tag }}
       version: ${{ steps.version.outputs.version }}
@@ -114,7 +114,7 @@ jobs:
 
   release-mac:
     needs: [prepare-release]
-    runs-on: macos-latest
+    runs-on: [self-hosted, macOS]
     env:
       NODE_OPTIONS: --max-old-space-size=4096
     steps:
@@ -166,7 +166,7 @@ jobs:
 
   release-win:
     needs: [prepare-release]
-    runs-on: windows-latest
+    runs-on: [self-hosted, Windows]
     env:
       NODE_OPTIONS: --max-old-space-size=4096
     steps:
@@ -201,7 +201,7 @@ jobs:
 
   finalize-release:
     needs: [prepare-release, release-mac, release-win]
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, Linux]
     steps:
       - uses: actions/checkout@v4
         with:
