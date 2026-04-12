@@ -53,7 +53,7 @@ permissions:
 
 jobs:
   prepare-release:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, Linux]
     outputs:
       tag: ${{ steps.version.outputs.tag }}
       version: ${{ steps.version.outputs.version }}
@@ -100,7 +100,7 @@ jobs:
 
   release-mac:
     needs: [prepare-release]
-    runs-on: macos-latest
+    runs-on: [self-hosted, macOS]
     steps:
       - uses: actions/checkout@v4
 
@@ -199,7 +199,7 @@ jobs:
 
   finalize-release:
     needs: [prepare-release, release-mac]
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, Linux]
     steps:
       - uses: actions/checkout@v4
         with:
