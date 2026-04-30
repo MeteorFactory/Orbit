@@ -5,3 +5,11 @@
 !.env.example
 node_modules/
 .kanbai-worktrees/
+
+# Analysis tool reports (auto-managed by Kanbai)
+megalinter-reports/
+.semgrep/
+.bearer/
+.trivycache/
+.checkov/
+# End analysis tool reports
