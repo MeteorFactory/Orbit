@@ -13,3 +13,4 @@ megalinter-reports/
 .trivycache/
 .checkov/
 # End analysis tool reports
+/.singularity-worktrees/
