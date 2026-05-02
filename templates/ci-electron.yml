@@ -35,6 +35,10 @@ on:
         description: "Run build job"
         type: boolean
         default: true
+      run-e2e:
+        description: "Run e2e tests (Playwright + Electron)"
+        type: boolean
+        default: false
 
 jobs:
   lint:
@@ -87,6 +91,15 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
+      - name: Install Electron system dependencies (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libatk1.0-0 libatk-bridge2.0-0 libcups2 libdrm2 libgbm1 libgtk-3-0 \
+            libnss3 libxcomposite1 libxdamage1 libxfixes3 libxrandr2 libxkbcommon0 \
+            libasound2 libpango-1.0-0 libcairo2 libatspi2.0-0 libx11-xcb1 libxss1 \
+            libxtst6 xdg-utils
       - name: Enable pnpm via corepack
         if: ${{ inputs.package-manager == 'pnpm' }}
         run: corepack enable && corepack prepare pnpm@${{ inputs.pnpm-version }} --activate
@@ -110,6 +123,15 @@ jobs:
       NODE_OPTIONS: --max-old-space-size=4096
     steps:
       - uses: actions/checkout@v4
+      - name: Install Electron system dependencies (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libatk1.0-0 libatk-bridge2.0-0 libcups2 libdrm2 libgbm1 libgtk-3-0 \
+            libnss3 libxcomposite1 libxdamage1 libxfixes3 libxrandr2 libxkbcommon0 \
+            libasound2 libpango-1.0-0 libcairo2 libatspi2.0-0 libx11-xcb1 libxss1 \
+            libxtst6 xdg-utils
       - name: Enable pnpm via corepack
         if: ${{ inputs.package-manager == 'pnpm' }}
         run: corepack enable && corepack prepare pnpm@${{ inputs.pnpm-version }} --activate
@@ -122,3 +144,42 @@ jobs:
       - run: pnpm install --frozen-lockfile
         if: ${{ inputs.package-manager == 'pnpm' }}
       - run: ${{ inputs.package-manager }} run build
+
+  e2e:
+    if: ${{ inputs.run-e2e }}
+    strategy:
+      matrix:
+        os: ${{ fromJson(inputs.os-matrix) }}
+    runs-on: ${{ matrix.os }}
+    env:
+      NODE_OPTIONS: --max-old-space-size=4096
+    steps:
+      - uses: actions/checkout@v4
+      - name: Enable pnpm via corepack
+        if: ${{ inputs.package-manager == 'pnpm' }}
+        run: corepack enable && corepack prepare pnpm@${{ inputs.pnpm-version }} --activate
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ inputs.node-version }}
+          cache: ${{ inputs.package-manager }}
+      - run: npm ci
+        if: ${{ inputs.package-manager == 'npm' }}
+      - run: pnpm install --frozen-lockfile
+        if: ${{ inputs.package-manager == 'pnpm' }}
+      - name: Install Electron system dependencies (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libatk1.0-0 libatk-bridge2.0-0 libcups2 libdrm2 libgbm1 libgtk-3-0 \
+            libnss3 libxcomposite1 libxdamage1 libxfixes3 libxrandr2 libxkbcommon0 \
+            libasound2 libpango-1.0-0 libcairo2 libatspi2.0-0 libx11-xcb1 libxss1 \
+            libxtst6 xvfb xdg-utils
+      - name: Install Playwright
+        run: npx playwright install --with-deps
+      - name: Run e2e tests (Linux)
+        if: runner.os == 'Linux'
+        run: xvfb-run --auto-servernum -- ${{ inputs.package-manager }} run test:e2e
+      - name: Run e2e tests (macOS/Windows)
+        if: runner.os != 'Linux'
+        run: ${{ inputs.package-manager }} run test:e2e
