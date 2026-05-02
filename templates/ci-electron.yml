@@ -90,7 +90,7 @@ jobs:
         os: ${{ fromJson(inputs.os-matrix) }}
     runs-on: ${{ matrix.os }}
     env:
-      NODE_OPTIONS: --max-old-space-size=8192
+      NODE_OPTIONS: --max-old-space-size=4096
     steps:
       - uses: actions/checkout@v4
       - name: Install Electron system dependencies (Linux)
@@ -128,7 +128,7 @@ jobs:
         os: ${{ fromJson(inputs.os-matrix) }}
     runs-on: ${{ matrix.os }}
     env:
-      NODE_OPTIONS: --max-old-space-size=8192
+      NODE_OPTIONS: --max-old-space-size=4096
     steps:
       - uses: actions/checkout@v4
       - name: Install Electron system dependencies (Linux)
@@ -166,7 +166,7 @@ jobs:
         os: ${{ fromJson(inputs.os-matrix) }}
     runs-on: ${{ matrix.os }}
     env:
-      NODE_OPTIONS: --max-old-space-size=8192
+      NODE_OPTIONS: --max-old-space-size=4096
     steps:
       - uses: actions/checkout@v4
       - name: Install Electron system dependencies (Linux)
