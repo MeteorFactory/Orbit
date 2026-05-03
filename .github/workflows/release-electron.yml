@@ -27,6 +27,10 @@ on:
         description: "Event type for the repository_dispatch (e.g. meteor-release)"
         type: string
         default: ""
+      notarize:
+        description: "Whether to notarize the macOS build (requires Apple Developer agreement in effect)"
+        type: boolean
+        default: true
     secrets:
       MACOS_CERTIFICATE:
         description: "Base64-encoded macOS signing certificate (.p12)"
@@ -146,13 +150,17 @@ jobs:
             echo "::error::MACOS_CERTIFICATE secret is required for release builds."
             exit 1
           fi
-          if [ -z "$APPLE_TEAM_ID" ]; then
+          if [ "$NOTARIZE" = "true" ] && [ -z "$APPLE_TEAM_ID" ]; then
             echo "::error::APPLE_TEAM_ID secret is required for notarization."
             exit 1
+          fi
+          if [ "$NOTARIZE" = "false" ]; then
+            echo "::warning::Notarization is disabled — macOS build will be signed but not notarized."
           fi
         env:
           CSC_LINK: ${{ secrets.MACOS_CERTIFICATE }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          NOTARIZE: ${{ inputs.notarize }}
 
       - name: Build Electron app and publish (arm64 + x64)
         run: npx electron-builder --mac --arm64 --x64 --publish always
@@ -160,9 +168,9 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           CSC_LINK: ${{ secrets.MACOS_CERTIFICATE }}
           CSC_KEY_PASSWORD: ${{ secrets.MACOS_CERTIFICATE_PWD }}
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_ID: ${{ inputs.notarize && secrets.APPLE_ID || '' }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ inputs.notarize && secrets.APPLE_APP_SPECIFIC_PASSWORD || '' }}
+          APPLE_TEAM_ID: ${{ inputs.notarize && secrets.APPLE_TEAM_ID || '' }}
 
   release-win:
     needs: [prepare-release]
