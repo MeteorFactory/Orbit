@@ -55,7 +55,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ inputs.node-version }}
-          cache: ${{ inputs.package-manager }}
+          cache: ${{ matrix.os != 'self-hosted' && inputs.package-manager || '' }}
       - run: npm ci
         if: ${{ inputs.package-manager == 'npm' }}
       - run: pnpm install --frozen-lockfile
@@ -79,7 +79,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ inputs.node-version }}
-          cache: ${{ inputs.package-manager }}
+          cache: ${{ matrix.os != 'self-hosted' && inputs.package-manager || '' }}
       - run: npm ci
         if: ${{ inputs.package-manager == 'npm' }}
       - run: pnpm install --frozen-lockfile
@@ -103,7 +103,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ inputs.node-version }}
-          cache: ${{ inputs.package-manager }}
+          cache: ${{ matrix.os != 'self-hosted' && inputs.package-manager || '' }}
       - run: npm ci
         if: ${{ inputs.package-manager == 'npm' }}
       - run: pnpm install --frozen-lockfile
@@ -127,7 +127,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ inputs.node-version }}
-          cache: ${{ inputs.package-manager }}
+          cache: ${{ matrix.os != 'self-hosted' && inputs.package-manager || '' }}
       - run: npm ci
         if: ${{ inputs.package-manager == 'npm' }}
       - run: pnpm install --frozen-lockfile
