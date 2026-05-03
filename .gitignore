@@ -14,3 +14,4 @@ megalinter-reports/
 .checkov/
 # End analysis tool reports
 /.singularity-worktrees/
+.singularity-session.lock
