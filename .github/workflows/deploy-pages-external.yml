@@ -16,9 +16,13 @@ on:
         type: string
         default: "gh-pages"
       enable-tagging:
-        description: "Create an incremental version tag (v0.0.X) on each deploy"
+        description: "Create an incremental version tag on each deploy"
         type: boolean
         default: false
+      site-name:
+        description: "Site name to prefix tags with (e.g. kanbai-v2 → kanbai-v2/v0.0.X)"
+        type: string
+        default: ""
       node-version:
         description: "Node.js version to use"
         type: string
@@ -92,14 +96,26 @@ jobs:
         id: version
         if: ${{ inputs.enable-tagging }}
         run: |
-          LATEST_TAG=$(git tag -l "v0.0.*" --sort=-version:refname | head -1)
+          PREFIX="${{ inputs.site-name }}"
+          if [ -n "$PREFIX" ]; then
+            PATTERN="${PREFIX}/v0.0.*"
+            SED_STRIP="${PREFIX}/v0\\.0\\."
+          else
+            PATTERN="v0.0.*"
+            SED_STRIP="v0\\.0\\."
+          fi
+          LATEST_TAG=$(git tag -l "$PATTERN" --sort=-version:refname | head -1)
           if [ -z "$LATEST_TAG" ]; then
             NEXT="0.0.1"
           else
-            PATCH=$(echo "$LATEST_TAG" | sed "s/v0\.0\.//")
+            PATCH=$(echo "$LATEST_TAG" | sed "s/${SED_STRIP}//")
             NEXT="0.0.$((PATCH + 1))"
           fi
-          TAG="v${NEXT}"
+          if [ -n "$PREFIX" ]; then
+            TAG="${PREFIX}/v${NEXT}"
+          else
+            TAG="v${NEXT}"
+          fi
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
           echo "Next deploy version: $TAG"
 
