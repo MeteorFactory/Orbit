@@ -15,6 +15,18 @@ on:
         description: "pnpm version (only used when package-manager is pnpm)"
         type: string
         default: "10"
+      channel:
+        description: "Release channel: latest (stable) or alpha (pre-release)"
+        type: string
+        default: "latest"
+      site-dispatch-repo:
+        description: "Repository to notify via repository_dispatch when release is published (e.g. owner/repo)"
+        type: string
+        default: ""
+      site-dispatch-event:
+        description: "Event type for the repository_dispatch (e.g. meteor-release)"
+        type: string
+        default: ""
       notarize:
         description: "Whether to notarize the macOS build (requires Apple Developer agreement in effect)"
         type: boolean
@@ -35,16 +47,23 @@ on:
       APPLE_TEAM_ID:
         description: "Apple Developer Team ID"
         required: false
+      SITE_APP_ID:
+        description: "GitHub App ID for cross-repo site dispatch"
+        required: false
+      SITE_APP_PRIVATE_KEY:
+        description: "GitHub App private key for cross-repo site dispatch"
+        required: false
 
 permissions:
   contents: write
 
 jobs:
   prepare-release:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux]
     outputs:
       tag: ${{ steps.version.outputs.tag }}
       version: ${{ steps.version.outputs.version }}
+      channel: ${{ steps.version.outputs.channel }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -53,20 +72,36 @@ jobs:
       - name: Determine next version
         id: version
         run: |
+          CHANNEL="${{ inputs.channel }}"
           VERSION=$(node -p "require('./package.json').version")
           MAJOR_MINOR=$(echo "$VERSION" | sed 's/\.[0-9]*$//')
-          LATEST_TAG=$(git tag -l "v${MAJOR_MINOR}.*" | sort -V | tail -1)
-          if [ -z "$LATEST_TAG" ]; then
-            NEXT_VERSION="$VERSION"
+
+          if [ "$CHANNEL" = "alpha" ]; then
+            LATEST_ALPHA=$(git tag -l "v${MAJOR_MINOR}.*-alpha.*" | sort -V | tail -1)
+            if [ -z "$LATEST_ALPHA" ]; then
+              NEXT_VERSION="${VERSION}-alpha.1"
+            else
+              ALPHA_NUM=$(echo "$LATEST_ALPHA" | sed 's/.*-alpha\.//')
+              NEXT_ALPHA=$((ALPHA_NUM + 1))
+              BASE=$(echo "$LATEST_ALPHA" | sed 's/-alpha\..*//' | sed 's/^v//')
+              NEXT_VERSION="${BASE}-alpha.${NEXT_ALPHA}"
+            fi
           else
-            LATEST_PATCH=$(echo "$LATEST_TAG" | sed "s/v${MAJOR_MINOR}\.//")
-            NEXT_PATCH=$((LATEST_PATCH + 1))
-            NEXT_VERSION="${MAJOR_MINOR}.${NEXT_PATCH}"
+            LATEST_TAG=$(git tag -l "v${MAJOR_MINOR}.*" | grep -v '\-' | sort -V | tail -1)
+            if [ -z "$LATEST_TAG" ]; then
+              NEXT_VERSION="$VERSION"
+            else
+              LATEST_PATCH=$(echo "$LATEST_TAG" | sed "s/v${MAJOR_MINOR}\.//")
+              NEXT_PATCH=$((LATEST_PATCH + 1))
+              NEXT_VERSION="${MAJOR_MINOR}.${NEXT_PATCH}"
+            fi
           fi
+
           TAG="v${NEXT_VERSION}"
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
           echo "version=$NEXT_VERSION" >> "$GITHUB_OUTPUT"
-          echo "Next version: $TAG"
+          echo "channel=$CHANNEL" >> "$GITHUB_OUTPUT"
+          echo "Next version: $TAG (channel: $CHANNEL)"
 
       - name: Get last commit author
         id: author
@@ -83,7 +118,7 @@ jobs:
 
   release-mac:
     needs: [prepare-release]
-    runs-on: macos-latest
+    runs-on: [self-hosted, macos]
     env:
       NODE_OPTIONS: --max-old-space-size=4096
     steps:
@@ -139,7 +174,7 @@ jobs:
 
   release-win:
     needs: [prepare-release]
-    runs-on: windows-latest
+    runs-on: [self-hosted, linux]
     env:
       NODE_OPTIONS: --max-old-space-size=4096
     steps:
@@ -155,7 +190,6 @@ jobs:
           cache: ${{ inputs.package-manager }}
 
       - name: Set version in package.json
-        shell: bash
         run: ${{ inputs.package-manager }} version ${{ needs.prepare-release.outputs.version }} --no-git-tag-version --allow-same-version
 
       - run: npm ci
@@ -167,14 +201,13 @@ jobs:
         run: ${{ inputs.package-manager }} run build
 
       - name: Build Electron app and publish (Windows x64)
-        shell: bash
         run: npx electron-builder --win --x64 --publish always
         env:
           GH_TOKEN: ${{ github.token }}
 
   finalize-release:
     needs: [prepare-release, release-mac, release-win]
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux]
     steps:
       - uses: actions/checkout@v4
         with:
@@ -184,7 +217,16 @@ jobs:
         id: notes
         run: |
           TAG="${{ needs.prepare-release.outputs.tag }}"
-          PREV_TAG=$(git tag -l 'v*' --sort=-version:refname | grep -v "^${TAG}$" | head -1)
+          CHANNEL="${{ needs.prepare-release.outputs.channel }}"
+          if [ "$CHANNEL" = "alpha" ]; then
+            # For alpha: diff against previous alpha tag, or latest stable if none exists
+            PREV_TAG=$(git tag -l 'v*-alpha.*' --sort=-version:refname | grep -v "^${TAG}$" | head -1)
+            if [ -z "$PREV_TAG" ]; then
+              PREV_TAG=$(git tag -l 'v*' --sort=-version:refname | grep -v '\-' | head -1)
+            fi
+          else
+            PREV_TAG=$(git tag -l 'v*' --sort=-version:refname | grep -v '\-' | grep -v "^${TAG}$" | head -1)
+          fi
           if [ -z "$PREV_TAG" ]; then
             RANGE="HEAD"
           else
@@ -243,6 +285,33 @@ jobs:
           GH_TOKEN: ${{ github.token }}
 
       - name: Publish release (draft -> public)
-        run: gh release edit ${{ needs.prepare-release.outputs.tag }} --repo "$GITHUB_REPOSITORY" --draft=false
+        run: |
+          CHANNEL="${{ needs.prepare-release.outputs.channel }}"
+          FLAGS="--draft=false"
+          if [ "$CHANNEL" = "alpha" ]; then
+            FLAGS="$FLAGS --prerelease"
+          fi
+          gh release edit ${{ needs.prepare-release.outputs.tag }} --repo "$GITHUB_REPOSITORY" $FLAGS
         env:
           GH_TOKEN: ${{ github.token }}
+
+      - name: Generate cross-repo token for site dispatch
+        id: site-token
+        if: ${{ inputs.site-dispatch-repo != '' && inputs.site-dispatch-event != '' }}
+        uses: actions/create-github-app-token@v1
+        continue-on-error: true
+        with:
+          app-id: ${{ secrets.SITE_APP_ID }}
+          private-key: ${{ secrets.SITE_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: ${{ inputs.site-dispatch-repo }}
+
+      - name: Notify site to rebuild
+        if: ${{ steps.site-token.outcome == 'success' }}
+        run: |
+          gh api repos/${{ github.repository_owner }}/${{ inputs.site-dispatch-repo }}/dispatches \
+            -f event_type="${{ inputs.site-dispatch-event }}" \
+            -f "client_payload[tag]=${{ needs.prepare-release.outputs.tag }}" \
+            -f "client_payload[channel]=${{ needs.prepare-release.outputs.channel }}"
+        env:
+          GH_TOKEN: ${{ steps.site-token.outputs.token }}
