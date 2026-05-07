@@ -20,7 +20,7 @@ on:
         type: boolean
         default: false
       site-name:
-        description: "Site name to prefix tags with (e.g. kanbai-v2 → kanbai-v2/v0.0.X)"
+        description: "Site name to prefix tags with (e.g. singularity → singularity/v0.0.X)"
         type: string
         default: ""
       node-version:
