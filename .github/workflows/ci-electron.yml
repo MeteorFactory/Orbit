@@ -18,7 +18,7 @@ on:
       os-matrix:
         description: "JSON array of runner OS labels"
         type: string
-        default: '["self-hosted"]'
+        default: '["macos-latest", "windows-latest"]'
       run-lint:
         description: "Run lint job"
         type: boolean
@@ -50,6 +50,8 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
+      - name: Clean workspace
+        run: rm -rf node_modules dist out .tsbuildinfo coverage tmp
       - name: Enable pnpm via corepack
         if: ${{ inputs.package-manager == 'pnpm' }}
         run: corepack enable && corepack prepare pnpm@${{ inputs.pnpm-version }} --activate
@@ -72,6 +74,8 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
+      - name: Clean workspace
+        run: rm -rf node_modules dist out .tsbuildinfo coverage tmp
       - name: Enable pnpm via corepack
         if: ${{ inputs.package-manager == 'pnpm' }}
         run: corepack enable && corepack prepare pnpm@${{ inputs.pnpm-version }} --activate
@@ -96,6 +100,8 @@ jobs:
       NODE_OPTIONS: --max-old-space-size=4096
     steps:
       - uses: actions/checkout@v4
+      - name: Clean workspace
+        run: rm -rf node_modules dist out .tsbuildinfo coverage tmp
       - name: Install Electron system dependencies (Linux)
         if: runner.os == 'Linux'
         run: |
@@ -135,6 +141,8 @@ jobs:
       NODE_OPTIONS: --max-old-space-size=4096
     steps:
       - uses: actions/checkout@v4
+      - name: Clean workspace
+        run: rm -rf node_modules dist out .tsbuildinfo coverage tmp
       - name: Install Electron system dependencies (Linux)
         if: runner.os == 'Linux'
         run: |
@@ -174,6 +182,8 @@ jobs:
       NODE_OPTIONS: --max-old-space-size=4096
     steps:
       - uses: actions/checkout@v4
+      - name: Clean workspace
+        run: rm -rf node_modules dist out .tsbuildinfo coverage tmp
       - name: Install Electron system dependencies (Linux)
         if: runner.os == 'Linux'
         run: |
