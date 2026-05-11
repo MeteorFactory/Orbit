@@ -18,11 +18,7 @@ on:
       os-matrix:
         description: "JSON array of runner OS labels"
         type: string
-        default: '["self-hosted"]'
-      post-install:
-        description: "Command to run after install (e.g. prisma generate)"
-        type: string
-        default: ""
+        default: '["ubuntu-latest"]'
       run-lint:
         description: "Run lint job"
         type: boolean
@@ -39,6 +35,14 @@ on:
         description: "Run build job"
         type: boolean
         default: true
+      artifact-path:
+        description: "Path to upload as build artifact (e.g. dist/). Leave empty to skip upload"
+        type: string
+        default: ""
+      artifact-retention-days:
+        description: "Number of days to retain uploaded artifacts"
+        type: number
+        default: 7
 
 jobs:
   lint:
@@ -60,9 +64,6 @@ jobs:
         if: ${{ inputs.package-manager == 'npm' }}
       - run: pnpm install --frozen-lockfile
         if: ${{ inputs.package-manager == 'pnpm' }}
-      - name: Post-install
-        if: ${{ inputs.post-install != '' }}
-        run: ${{ inputs.post-install }}
       - run: ${{ inputs.package-manager }} run lint
 
   typecheck:
@@ -84,9 +85,6 @@ jobs:
         if: ${{ inputs.package-manager == 'npm' }}
       - run: pnpm install --frozen-lockfile
         if: ${{ inputs.package-manager == 'pnpm' }}
-      - name: Post-install
-        if: ${{ inputs.post-install != '' }}
-        run: ${{ inputs.post-install }}
       - run: ${{ inputs.package-manager }} run typecheck
 
   test:
@@ -108,9 +106,6 @@ jobs:
         if: ${{ inputs.package-manager == 'npm' }}
       - run: pnpm install --frozen-lockfile
         if: ${{ inputs.package-manager == 'pnpm' }}
-      - name: Post-install
-        if: ${{ inputs.post-install != '' }}
-        run: ${{ inputs.post-install }}
       - run: ${{ inputs.package-manager }} run test
 
   build:
@@ -132,7 +127,10 @@ jobs:
         if: ${{ inputs.package-manager == 'npm' }}
       - run: pnpm install --frozen-lockfile
         if: ${{ inputs.package-manager == 'pnpm' }}
-      - name: Post-install
-        if: ${{ inputs.post-install != '' }}
-        run: ${{ inputs.post-install }}
       - run: ${{ inputs.package-manager }} run build
+      - uses: actions/upload-artifact@v4
+        if: ${{ inputs.artifact-path != '' }}
+        with:
+          name: build-${{ matrix.os }}
+          path: ${{ inputs.artifact-path }}
+          retention-days: ${{ inputs.artifact-retention-days }}

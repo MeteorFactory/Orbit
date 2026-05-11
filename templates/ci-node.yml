@@ -35,6 +35,14 @@ on:
         description: "Run build job"
         type: boolean
         default: true
+      artifact-path:
+        description: "Path to upload as build artifact (e.g. dist/). Leave empty to skip upload"
+        type: string
+        default: ""
+      artifact-retention-days:
+        description: "Number of days to retain uploaded artifacts"
+        type: number
+        default: 7
 
 jobs:
   lint:
@@ -120,3 +128,9 @@ jobs:
       - run: pnpm install --frozen-lockfile
         if: ${{ inputs.package-manager == 'pnpm' }}
       - run: ${{ inputs.package-manager }} run build
+      - uses: actions/upload-artifact@v4
+        if: ${{ inputs.artifact-path != '' }}
+        with:
+          name: build-${{ matrix.os }}
+          path: ${{ inputs.artifact-path }}
+          retention-days: ${{ inputs.artifact-retention-days }}
