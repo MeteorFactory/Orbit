@@ -126,7 +126,7 @@ jobs:
 
       - name: Enable pnpm via corepack
         if: ${{ inputs.package-manager == 'pnpm' }}
-        run: corepack enable && corepack prepare pnpm@${{ inputs.pnpm-version }} --activate
+        run: corepack enable pnpm && corepack prepare pnpm@${{ inputs.pnpm-version }} --activate
 
       - uses: actions/setup-node@v5
         with:
@@ -182,7 +182,7 @@ jobs:
 
       - name: Enable pnpm via corepack
         if: ${{ inputs.package-manager == 'pnpm' }}
-        run: corepack enable && corepack prepare pnpm@${{ inputs.pnpm-version }} --activate
+        run: corepack enable pnpm && corepack prepare pnpm@${{ inputs.pnpm-version }} --activate
 
       - uses: actions/setup-node@v5
         with:
@@ -215,7 +215,7 @@ jobs:
 
       - name: Enable pnpm via corepack
         if: ${{ inputs.package-manager == 'pnpm' }}
-        run: corepack enable && corepack prepare pnpm@${{ inputs.pnpm-version }} --activate
+        run: corepack enable pnpm && corepack prepare pnpm@${{ inputs.pnpm-version }} --activate
 
       - uses: actions/setup-node@v5
         with:
