@@ -52,11 +52,11 @@ jobs:
         os: ${{ fromJson(inputs.os-matrix) }}
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Enable pnpm via corepack
         if: ${{ inputs.package-manager == 'pnpm' }}
         run: corepack enable && corepack prepare pnpm@${{ inputs.pnpm-version }} --activate
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: ${{ inputs.node-version }}
           cache: ${{ matrix.os != 'self-hosted' && inputs.package-manager || '' }}
@@ -73,11 +73,11 @@ jobs:
         os: ${{ fromJson(inputs.os-matrix) }}
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Enable pnpm via corepack
         if: ${{ inputs.package-manager == 'pnpm' }}
         run: corepack enable && corepack prepare pnpm@${{ inputs.pnpm-version }} --activate
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: ${{ inputs.node-version }}
           cache: ${{ matrix.os != 'self-hosted' && inputs.package-manager || '' }}
@@ -94,11 +94,11 @@ jobs:
         os: ${{ fromJson(inputs.os-matrix) }}
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Enable pnpm via corepack
         if: ${{ inputs.package-manager == 'pnpm' }}
         run: corepack enable && corepack prepare pnpm@${{ inputs.pnpm-version }} --activate
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: ${{ inputs.node-version }}
           cache: ${{ matrix.os != 'self-hosted' && inputs.package-manager || '' }}
@@ -115,11 +115,11 @@ jobs:
         os: ${{ fromJson(inputs.os-matrix) }}
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Enable pnpm via corepack
         if: ${{ inputs.package-manager == 'pnpm' }}
         run: corepack enable && corepack prepare pnpm@${{ inputs.pnpm-version }} --activate
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: ${{ inputs.node-version }}
           cache: ${{ matrix.os != 'self-hosted' && inputs.package-manager || '' }}
@@ -128,7 +128,7 @@ jobs:
       - run: pnpm install --frozen-lockfile
         if: ${{ inputs.package-manager == 'pnpm' }}
       - run: ${{ inputs.package-manager }} run build
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v5
         if: ${{ inputs.artifact-path != '' }}
         with:
           name: build-${{ matrix.os }}

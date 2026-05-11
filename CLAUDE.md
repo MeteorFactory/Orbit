@@ -49,7 +49,7 @@ uses: MeteorFactory/Pipelines/.github/workflows/<name>.yml@main
 ### YAML Style
 - Workflow inputs: `kebab-case` names
 - Secrets: `UPPER_SNAKE_CASE` names
-- Pin all third-party actions to major version tags (e.g., `actions/checkout@v4`)
+- Pin all third-party actions to major version tags (e.g., `actions/checkout@v5`)
 - Use `workflow_call` trigger on all reusable templates
 - Prefer `npm ci` over `npm install` for reproducible installs
 

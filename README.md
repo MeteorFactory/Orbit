@@ -108,7 +108,7 @@ Pipelines/
 - Input names: `kebab-case`
 - Secret names: `UPPER_SNAKE_CASE`
 - All templates use `workflow_call` trigger for reusability
-- Pin action versions to major tags (e.g., `actions/checkout@v4`)
+- Pin action versions to major tags (e.g., `actions/checkout@v5`)
 
 ## License
 

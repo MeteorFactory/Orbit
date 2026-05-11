@@ -100,7 +100,7 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Fetch secrets
         uses: MeteorFactory/Pipelines/actions/azure-keyvault@main
@@ -122,7 +122,7 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Fetch secrets
         id: secrets
@@ -158,7 +158,7 @@ jobs:
     needs: ci
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Fetch secrets from Key Vault
         uses: MeteorFactory/Pipelines/actions/azure-keyvault@main

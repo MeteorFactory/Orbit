@@ -45,7 +45,7 @@ jobs:
       DB_PASSWORD: ${{ steps.keyvault.outputs.DB_PASSWORD }}
       API_KEY: ${{ steps.keyvault.outputs.API_KEY }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Fetch secrets from Azure Key Vault
         id: keyvault
@@ -106,9 +106,9 @@ jobs:
       DB_PASSWORD: ${{ needs.fetch-secrets.outputs.DB_PASSWORD }}
       API_KEY: ${{ needs.fetch-secrets.outputs.API_KEY }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: "22"
           cache: npm

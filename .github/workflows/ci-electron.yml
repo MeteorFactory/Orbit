@@ -57,13 +57,13 @@ jobs:
         os: ${{ fromJson(inputs.os-matrix) }}
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Clean workspace
         run: rm -rf node_modules dist out .tsbuildinfo coverage tmp
       - name: Enable pnpm via corepack
         if: ${{ inputs.package-manager == 'pnpm' }}
         run: corepack enable && corepack prepare pnpm@${{ inputs.pnpm-version }} --activate
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: ${{ inputs.node-version }}
           cache: ${{ matrix.os != 'self-hosted' && inputs.package-manager || '' }}
@@ -81,13 +81,13 @@ jobs:
         os: ${{ fromJson(inputs.os-matrix) }}
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Clean workspace
         run: rm -rf node_modules dist out .tsbuildinfo coverage tmp
       - name: Enable pnpm via corepack
         if: ${{ inputs.package-manager == 'pnpm' }}
         run: corepack enable && corepack prepare pnpm@${{ inputs.pnpm-version }} --activate
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: ${{ inputs.node-version }}
           cache: ${{ matrix.os != 'self-hosted' && inputs.package-manager || '' }}
@@ -107,7 +107,7 @@ jobs:
     env:
       NODE_OPTIONS: --max-old-space-size=4096
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Clean workspace
         run: rm -rf node_modules dist out .tsbuildinfo coverage tmp
       - name: Install Electron system dependencies (Linux)
@@ -128,7 +128,7 @@ jobs:
       - name: Enable pnpm via corepack
         if: ${{ inputs.package-manager == 'pnpm' }}
         run: corepack enable && corepack prepare pnpm@${{ inputs.pnpm-version }} --activate
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: ${{ inputs.node-version }}
           cache: ${{ matrix.os != 'self-hosted' && inputs.package-manager || '' }}
@@ -148,7 +148,7 @@ jobs:
     env:
       NODE_OPTIONS: --max-old-space-size=4096
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Clean workspace
         run: rm -rf node_modules dist out .tsbuildinfo coverage tmp
       - name: Install Electron system dependencies (Linux)
@@ -169,7 +169,7 @@ jobs:
       - name: Enable pnpm via corepack
         if: ${{ inputs.package-manager == 'pnpm' }}
         run: corepack enable && corepack prepare pnpm@${{ inputs.pnpm-version }} --activate
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: ${{ inputs.node-version }}
           cache: ${{ matrix.os != 'self-hosted' && inputs.package-manager || '' }}
@@ -178,7 +178,7 @@ jobs:
       - run: pnpm install --frozen-lockfile
         if: ${{ inputs.package-manager == 'pnpm' }}
       - run: ${{ inputs.package-manager }} run build
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v5
         if: ${{ inputs.artifact-path != '' }}
         with:
           name: build-${{ matrix.os }}
@@ -195,7 +195,7 @@ jobs:
     env:
       NODE_OPTIONS: --max-old-space-size=4096
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Clean workspace
         run: rm -rf node_modules dist out .tsbuildinfo coverage tmp
       - name: Install Electron system dependencies (Linux)
@@ -220,7 +220,7 @@ jobs:
       - name: Enable pnpm via corepack
         if: ${{ inputs.package-manager == 'pnpm' }}
         run: corepack enable && corepack prepare pnpm@${{ inputs.pnpm-version }} --activate
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: ${{ inputs.node-version }}
           cache: ${{ matrix.os != 'self-hosted' && inputs.package-manager || '' }}
@@ -236,7 +236,7 @@ jobs:
       - name: Run e2e tests (macOS/Windows)
         if: runner.os != 'Linux'
         run: ${{ inputs.package-manager }} run test:e2e
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v5
         if: ${{ always() && inputs.run-e2e }}
         with:
           name: e2e-results-${{ matrix.os }}
