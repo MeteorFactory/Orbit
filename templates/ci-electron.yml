@@ -62,7 +62,7 @@ jobs:
         run: rm -rf node_modules dist out .tsbuildinfo coverage tmp
       - name: Enable pnpm via corepack
         if: ${{ inputs.package-manager == 'pnpm' }}
-        run: corepack enable && corepack prepare pnpm@${{ inputs.pnpm-version }} --activate
+        run: corepack enable pnpm && corepack prepare pnpm@${{ inputs.pnpm-version }} --activate
       - uses: actions/setup-node@v5
         with:
           node-version: ${{ inputs.node-version }}
@@ -86,7 +86,7 @@ jobs:
         run: rm -rf node_modules dist out .tsbuildinfo coverage tmp
       - name: Enable pnpm via corepack
         if: ${{ inputs.package-manager == 'pnpm' }}
-        run: corepack enable && corepack prepare pnpm@${{ inputs.pnpm-version }} --activate
+        run: corepack enable pnpm && corepack prepare pnpm@${{ inputs.pnpm-version }} --activate
       - uses: actions/setup-node@v5
         with:
           node-version: ${{ inputs.node-version }}
@@ -127,7 +127,7 @@ jobs:
           sudo ldconfig
       - name: Enable pnpm via corepack
         if: ${{ inputs.package-manager == 'pnpm' }}
-        run: corepack enable && corepack prepare pnpm@${{ inputs.pnpm-version }} --activate
+        run: corepack enable pnpm && corepack prepare pnpm@${{ inputs.pnpm-version }} --activate
       - uses: actions/setup-node@v5
         with:
           node-version: ${{ inputs.node-version }}
@@ -168,7 +168,7 @@ jobs:
           sudo ldconfig
       - name: Enable pnpm via corepack
         if: ${{ inputs.package-manager == 'pnpm' }}
-        run: corepack enable && corepack prepare pnpm@${{ inputs.pnpm-version }} --activate
+        run: corepack enable pnpm && corepack prepare pnpm@${{ inputs.pnpm-version }} --activate
       - uses: actions/setup-node@v5
         with:
           node-version: ${{ inputs.node-version }}
@@ -219,7 +219,7 @@ jobs:
           git config --global user.name "GitHub Actions"
       - name: Enable pnpm via corepack
         if: ${{ inputs.package-manager == 'pnpm' }}
-        run: corepack enable && corepack prepare pnpm@${{ inputs.pnpm-version }} --activate
+        run: corepack enable pnpm && corepack prepare pnpm@${{ inputs.pnpm-version }} --activate
       - uses: actions/setup-node@v5
         with:
           node-version: ${{ inputs.node-version }}
