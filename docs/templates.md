@@ -126,7 +126,7 @@ jobs:
 
 ## release-electron.yml
 
-Full Electron release pipeline: auto-versioning from `package.json`, macOS code signing + notarization (arm64 + x64), Windows build (x64), asset cleanup (removes `.blockmap` files), and draft-to-public release publishing.
+Full Electron release pipeline: auto-versioning from `package.json`, macOS code signing + notarization (arm64 + x64), Windows build (x64), Linux build (x64), asset cleanup (removes `.blockmap` files), and draft-to-public release publishing.
 
 ### Inputs
 
@@ -152,7 +152,8 @@ Full Electron release pipeline: auto-versioning from `package.json`, macOS code 
 1. **prepare-release** -- Reads version from `package.json`, determines the next patch version from existing git tags, creates and pushes the tag.
 2. **release-mac** -- Builds and publishes macOS artifacts (arm64 + x64) with code signing and notarization via `electron-builder`.
 3. **release-win** -- Builds and publishes Windows artifacts (x64) via `electron-builder`.
-4. **finalize-release** -- Generates release notes from commits (grouped by conventional commit type), removes `.blockmap` assets, and marks the GitHub release as non-draft.
+4. **release-linux** -- Builds and publishes Linux artifacts (x64 AppImage) via `electron-builder`.
+5. **finalize-release** -- Generates release notes from commits (grouped by conventional commit type), removes `.blockmap` assets, and marks the GitHub release as non-draft.
 
 ### Permissions
 

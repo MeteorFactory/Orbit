@@ -205,8 +205,41 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
 
+  release-linux:
+    needs: [prepare-release]
+    runs-on: [self-hosted, linux]
+    env:
+      NODE_OPTIONS: --max-old-space-size=4096
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Enable pnpm via corepack
+        if: ${{ inputs.package-manager == 'pnpm' }}
+        run: corepack enable && corepack prepare pnpm@${{ inputs.pnpm-version }} --activate
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ inputs.node-version }}
+          cache: ${{ inputs.package-manager }}
+
+      - name: Set version in package.json
+        run: ${{ inputs.package-manager }} version ${{ needs.prepare-release.outputs.version }} --no-git-tag-version --allow-same-version
+
+      - run: npm ci
+        if: ${{ inputs.package-manager == 'npm' }}
+      - run: pnpm install --frozen-lockfile
+        if: ${{ inputs.package-manager == 'pnpm' }}
+
+      - name: Build renderer + main
+        run: ${{ inputs.package-manager }} run build
+
+      - name: Build Electron app and publish (Linux x64)
+        run: npx electron-builder --linux --x64 --publish always
+        env:
+          GH_TOKEN: ${{ github.token }}
+
   finalize-release:
-    needs: [prepare-release, release-mac, release-win]
+    needs: [prepare-release, release-mac, release-win, release-linux]
     runs-on: [self-hosted, linux]
     steps:
       - uses: actions/checkout@v4
