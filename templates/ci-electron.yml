@@ -59,7 +59,10 @@ jobs:
     steps:
       - uses: actions/checkout@v5
       - name: Clean workspace
-        run: rm -rf node_modules dist out .tsbuildinfo coverage tmp
+        run: |
+          rm -rf node_modules dist out .tsbuildinfo coverage tmp
+          rm -rf ~/Library/Caches/electron 2>/dev/null || true
+          rm -rf ~/.cache/electron 2>/dev/null || true
       - name: Enable pnpm via corepack
         if: ${{ inputs.package-manager == 'pnpm' }}
         run: corepack enable pnpm && corepack prepare pnpm@${{ inputs.pnpm-version }} --activate
@@ -84,7 +87,10 @@ jobs:
     steps:
       - uses: actions/checkout@v5
       - name: Clean workspace
-        run: rm -rf node_modules dist out .tsbuildinfo coverage tmp
+        run: |
+          rm -rf node_modules dist out .tsbuildinfo coverage tmp
+          rm -rf ~/Library/Caches/electron 2>/dev/null || true
+          rm -rf ~/.cache/electron 2>/dev/null || true
       - name: Enable pnpm via corepack
         if: ${{ inputs.package-manager == 'pnpm' }}
         run: corepack enable pnpm && corepack prepare pnpm@${{ inputs.pnpm-version }} --activate
@@ -111,7 +117,10 @@ jobs:
     steps:
       - uses: actions/checkout@v5
       - name: Clean workspace
-        run: rm -rf node_modules dist out .tsbuildinfo coverage tmp
+        run: |
+          rm -rf node_modules dist out .tsbuildinfo coverage tmp
+          rm -rf ~/Library/Caches/electron 2>/dev/null || true
+          rm -rf ~/.cache/electron 2>/dev/null || true
       - name: Install Electron system dependencies (Linux)
         if: runner.os == 'Linux'
         run: |
@@ -153,7 +162,10 @@ jobs:
     steps:
       - uses: actions/checkout@v5
       - name: Clean workspace
-        run: rm -rf node_modules dist out .tsbuildinfo coverage tmp
+        run: |
+          rm -rf node_modules dist out .tsbuildinfo coverage tmp
+          rm -rf ~/Library/Caches/electron 2>/dev/null || true
+          rm -rf ~/.cache/electron 2>/dev/null || true
       - name: Install Electron system dependencies (Linux)
         if: runner.os == 'Linux'
         run: |
@@ -202,7 +214,10 @@ jobs:
     steps:
       - uses: actions/checkout@v5
       - name: Clean workspace
-        run: rm -rf node_modules dist out .tsbuildinfo coverage tmp
+        run: |
+          rm -rf node_modules dist out .tsbuildinfo coverage tmp
+          rm -rf ~/Library/Caches/electron 2>/dev/null || true
+          rm -rf ~/.cache/electron 2>/dev/null || true
       - name: Install Electron system dependencies (Linux)
         if: runner.os == 'Linux'
         run: |
