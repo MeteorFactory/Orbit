@@ -67,6 +67,7 @@ jobs:
         with:
           node-version: ${{ inputs.node-version }}
           cache: ${{ matrix.os != 'self-hosted' && inputs.package-manager || '' }}
+          package-manager-cache: ${{ matrix.os != 'self-hosted' }}
       - run: npm ci
         if: ${{ inputs.package-manager == 'npm' }}
       - run: pnpm install --frozen-lockfile
@@ -91,6 +92,7 @@ jobs:
         with:
           node-version: ${{ inputs.node-version }}
           cache: ${{ matrix.os != 'self-hosted' && inputs.package-manager || '' }}
+          package-manager-cache: ${{ matrix.os != 'self-hosted' }}
       - run: npm ci
         if: ${{ inputs.package-manager == 'npm' }}
       - run: pnpm install --frozen-lockfile
@@ -132,6 +134,7 @@ jobs:
         with:
           node-version: ${{ inputs.node-version }}
           cache: ${{ matrix.os != 'self-hosted' && inputs.package-manager || '' }}
+          package-manager-cache: ${{ matrix.os != 'self-hosted' }}
       - run: npm ci
         if: ${{ inputs.package-manager == 'npm' }}
       - run: pnpm install --frozen-lockfile
@@ -173,6 +176,7 @@ jobs:
         with:
           node-version: ${{ inputs.node-version }}
           cache: ${{ matrix.os != 'self-hosted' && inputs.package-manager || '' }}
+          package-manager-cache: ${{ matrix.os != 'self-hosted' }}
       - run: npm ci
         if: ${{ inputs.package-manager == 'npm' }}
       - run: pnpm install --frozen-lockfile
@@ -224,6 +228,7 @@ jobs:
         with:
           node-version: ${{ inputs.node-version }}
           cache: ${{ matrix.os != 'self-hosted' && inputs.package-manager || '' }}
+          package-manager-cache: ${{ matrix.os != 'self-hosted' }}
       - run: npm ci
         if: ${{ inputs.package-manager == 'npm' }}
       - run: pnpm install --frozen-lockfile
