@@ -108,7 +108,7 @@ jobs:
           if [ -z "$LATEST_TAG" ]; then
             NEXT="0.0.1"
           else
-            PATCH=$(echo "$LATEST_TAG" | sed "s/${SED_STRIP}//")
+            PATCH=$(echo "$LATEST_TAG" | sed "s|${SED_STRIP}||")
             NEXT="0.0.$((PATCH + 1))"
           fi
           if [ -n "$PREFIX" ]; then
