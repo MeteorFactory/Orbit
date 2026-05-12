@@ -148,7 +148,9 @@ jobs:
         if: ${{ inputs.package-manager == 'npm' }}
       - run: pnpm install --frozen-lockfile
         if: ${{ inputs.package-manager == 'pnpm' }}
-      - run: ${{ inputs.package-manager }} run test
+      - name: Run tests
+        run: ${{ inputs.package-manager }} run test
+        timeout-minutes: 5
 
   build:
     if: ${{ inputs.run-build }}
