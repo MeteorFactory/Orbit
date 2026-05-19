@@ -62,7 +62,8 @@ jobs:
         if: ${{ inputs.package-manager == 'pnpm' }}
         run: |
           rm -f "$(command -v pnpm)" "$(command -v pnpx)" 2>/dev/null || true
-          corepack enable pnpm && corepack prepare pnpm@${{ inputs.pnpm-version }} --activate
+          corepack enable pnpm || true
+          corepack prepare pnpm@${{ inputs.pnpm-version }} --activate
 
       - uses: actions/setup-node@v5
         with:
