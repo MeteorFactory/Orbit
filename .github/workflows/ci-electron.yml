@@ -99,6 +99,17 @@ jobs:
           for attempt in 1 2 3; do
             pnpm install --frozen-lockfile && exit 0
             echo "::warning::pnpm install attempt $attempt failed, retrying in 15s..."
+            # A failed attempt can leave a dependency half-built — e.g.
+            # electron's postinstall aborts mid binary-download on a
+            # transient "socket hang up". pnpm does NOT re-run that
+            # postinstall on the next `pnpm install`: the package is
+            # already linked into node_modules, so the retry "succeeds"
+            # with electron's binary still missing and the e2e job later
+            # dies with "Electron failed to install correctly" (Release
+            # Alpha run #266). Wipe node_modules so the retry is a clean
+            # install that re-runs every postinstall. The pnpm store and
+            # the Electron binary cache survive, so it stays a fast relink.
+            rm -rf node_modules
             sleep 15
           done
           echo "::error::pnpm install failed after 3 attempts"
@@ -155,6 +166,17 @@ jobs:
           for attempt in 1 2 3; do
             pnpm install --frozen-lockfile && exit 0
             echo "::warning::pnpm install attempt $attempt failed, retrying in 15s..."
+            # A failed attempt can leave a dependency half-built — e.g.
+            # electron's postinstall aborts mid binary-download on a
+            # transient "socket hang up". pnpm does NOT re-run that
+            # postinstall on the next `pnpm install`: the package is
+            # already linked into node_modules, so the retry "succeeds"
+            # with electron's binary still missing and the e2e job later
+            # dies with "Electron failed to install correctly" (Release
+            # Alpha run #266). Wipe node_modules so the retry is a clean
+            # install that re-runs every postinstall. The pnpm store and
+            # the Electron binary cache survive, so it stays a fast relink.
+            rm -rf node_modules
             sleep 15
           done
           echo "::error::pnpm install failed after 3 attempts"
@@ -228,6 +250,17 @@ jobs:
           for attempt in 1 2 3; do
             pnpm install --frozen-lockfile && exit 0
             echo "::warning::pnpm install attempt $attempt failed, retrying in 15s..."
+            # A failed attempt can leave a dependency half-built — e.g.
+            # electron's postinstall aborts mid binary-download on a
+            # transient "socket hang up". pnpm does NOT re-run that
+            # postinstall on the next `pnpm install`: the package is
+            # already linked into node_modules, so the retry "succeeds"
+            # with electron's binary still missing and the e2e job later
+            # dies with "Electron failed to install correctly" (Release
+            # Alpha run #266). Wipe node_modules so the retry is a clean
+            # install that re-runs every postinstall. The pnpm store and
+            # the Electron binary cache survive, so it stays a fast relink.
+            rm -rf node_modules
             sleep 15
           done
           echo "::error::pnpm install failed after 3 attempts"
@@ -303,6 +336,17 @@ jobs:
           for attempt in 1 2 3; do
             pnpm install --frozen-lockfile && exit 0
             echo "::warning::pnpm install attempt $attempt failed, retrying in 15s..."
+            # A failed attempt can leave a dependency half-built — e.g.
+            # electron's postinstall aborts mid binary-download on a
+            # transient "socket hang up". pnpm does NOT re-run that
+            # postinstall on the next `pnpm install`: the package is
+            # already linked into node_modules, so the retry "succeeds"
+            # with electron's binary still missing and the e2e job later
+            # dies with "Electron failed to install correctly" (Release
+            # Alpha run #266). Wipe node_modules so the retry is a clean
+            # install that re-runs every postinstall. The pnpm store and
+            # the Electron binary cache survive, so it stays a fast relink.
+            rm -rf node_modules
             sleep 15
           done
           echo "::error::pnpm install failed after 3 attempts"
@@ -387,6 +431,17 @@ jobs:
           for attempt in 1 2 3; do
             pnpm install --frozen-lockfile && exit 0
             echo "::warning::pnpm install attempt $attempt failed, retrying in 15s..."
+            # A failed attempt can leave a dependency half-built — e.g.
+            # electron's postinstall aborts mid binary-download on a
+            # transient "socket hang up". pnpm does NOT re-run that
+            # postinstall on the next `pnpm install`: the package is
+            # already linked into node_modules, so the retry "succeeds"
+            # with electron's binary still missing and the e2e job later
+            # dies with "Electron failed to install correctly" (Release
+            # Alpha run #266). Wipe node_modules so the retry is a clean
+            # install that re-runs every postinstall. The pnpm store and
+            # the Electron binary cache survive, so it stays a fast relink.
+            rm -rf node_modules
             sleep 15
           done
           echo "::error::pnpm install failed after 3 attempts"

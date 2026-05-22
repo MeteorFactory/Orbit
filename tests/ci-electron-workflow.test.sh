@@ -72,6 +72,29 @@ for f in "$TEMPLATE" "$WORKFLOW"; do
   fi
 done
 
+# 5. The pnpm install retry must wipe node_modules between attempts.
+#    Covers the "Release Alpha #266" failure
+#    (https://github.com/MeteorFactory/Singularity/actions/runs/26300902505):
+#    attempt 1's `electron` postinstall aborted mid binary-download on a
+#    transient "socket hang up". pnpm does not re-run a dependency's
+#    postinstall on a plain `pnpm install` retry — the package is already
+#    linked into node_modules — so attempt 2 exited 0 with electron's
+#    binary still missing, and every e2e suite then died at launch with
+#    "Electron failed to install correctly". A clean retry must remove
+#    node_modules so the reinstall re-runs every postinstall.
+#
+#    `rm -rf node_modules` must appear on its own line: the "Clean
+#    workspace" step removes `node_modules dist out …` on one line, which
+#    this anchored pattern deliberately does NOT match.
+for f in "$TEMPLATE" "$WORKFLOW"; do
+  rel="${f#"$REPO_ROOT"/}"
+  if grep -Eq '^[[:space:]]*rm -rf node_modules[[:space:]]*$' "$f"; then
+    pass "$rel wipes node_modules between pnpm install retries"
+  else
+    err "$rel pnpm install retry does not wipe node_modules — a half-built dep (e.g. electron) survives the retry"
+  fi
+done
+
 if [[ $fail -ne 0 ]]; then
   echo "FAILED"
   exit 1
