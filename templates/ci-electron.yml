@@ -59,10 +59,13 @@ jobs:
     steps:
       - uses: actions/checkout@v5
       - name: Clean workspace
-        run: |
-          rm -rf node_modules dist out .tsbuildinfo coverage tmp
-          rm -rf ~/Library/Caches/electron 2>/dev/null || true
-          rm -rf ~/.cache/electron 2>/dev/null || true
+        # Only the previous build's working files are removed here. The
+        # Electron binary cache (~/Library/Caches/electron, ~/.cache/electron)
+        # is intentionally KEPT: wiping it forced every self-hosted run to
+        # re-download Electron, and concurrent jobs sharing a runner host
+        # exhausted the connection ("socket hang up"). The cache is keyed by
+        # Electron version and integrity-checked, so stale entries are harmless.
+        run: rm -rf node_modules dist out .tsbuildinfo coverage tmp
       - name: Enable pnpm via corepack
         if: ${{ inputs.package-manager == 'pnpm' }}
         run: |
@@ -74,10 +77,32 @@ jobs:
           node-version: ${{ inputs.node-version }}
           cache: ${{ matrix.os != 'self-hosted' && inputs.package-manager || '' }}
           package-manager-cache: ${{ matrix.os != 'self-hosted' }}
-      - run: npm ci
+      # Retry installs: native-module postinstall scripts (electron, etc.)
+      # download binaries over the network and intermittently fail with
+      # transient errors ("socket hang up", request timed out). One blip
+      # must not fail the whole pipeline.
+      - name: Install dependencies (npm)
         if: ${{ inputs.package-manager == 'npm' }}
-      - run: pnpm install --frozen-lockfile
+        shell: bash
+        run: |
+          for attempt in 1 2 3; do
+            npm ci && exit 0
+            echo "::warning::npm ci attempt $attempt failed, retrying in 15s..."
+            sleep 15
+          done
+          echo "::error::npm ci failed after 3 attempts"
+          exit 1
+      - name: Install dependencies (pnpm)
         if: ${{ inputs.package-manager == 'pnpm' }}
+        shell: bash
+        run: |
+          for attempt in 1 2 3; do
+            pnpm install --frozen-lockfile && exit 0
+            echo "::warning::pnpm install attempt $attempt failed, retrying in 15s..."
+            sleep 15
+          done
+          echo "::error::pnpm install failed after 3 attempts"
+          exit 1
       - run: ${{ inputs.package-manager }} run lint
 
   typecheck:
@@ -90,10 +115,13 @@ jobs:
     steps:
       - uses: actions/checkout@v5
       - name: Clean workspace
-        run: |
-          rm -rf node_modules dist out .tsbuildinfo coverage tmp
-          rm -rf ~/Library/Caches/electron 2>/dev/null || true
-          rm -rf ~/.cache/electron 2>/dev/null || true
+        # Only the previous build's working files are removed here. The
+        # Electron binary cache (~/Library/Caches/electron, ~/.cache/electron)
+        # is intentionally KEPT: wiping it forced every self-hosted run to
+        # re-download Electron, and concurrent jobs sharing a runner host
+        # exhausted the connection ("socket hang up"). The cache is keyed by
+        # Electron version and integrity-checked, so stale entries are harmless.
+        run: rm -rf node_modules dist out .tsbuildinfo coverage tmp
       - name: Enable pnpm via corepack
         if: ${{ inputs.package-manager == 'pnpm' }}
         run: |
@@ -105,10 +133,32 @@ jobs:
           node-version: ${{ inputs.node-version }}
           cache: ${{ matrix.os != 'self-hosted' && inputs.package-manager || '' }}
           package-manager-cache: ${{ matrix.os != 'self-hosted' }}
-      - run: npm ci
+      # Retry installs: native-module postinstall scripts (electron, etc.)
+      # download binaries over the network and intermittently fail with
+      # transient errors ("socket hang up", request timed out). One blip
+      # must not fail the whole pipeline.
+      - name: Install dependencies (npm)
         if: ${{ inputs.package-manager == 'npm' }}
-      - run: pnpm install --frozen-lockfile
+        shell: bash
+        run: |
+          for attempt in 1 2 3; do
+            npm ci && exit 0
+            echo "::warning::npm ci attempt $attempt failed, retrying in 15s..."
+            sleep 15
+          done
+          echo "::error::npm ci failed after 3 attempts"
+          exit 1
+      - name: Install dependencies (pnpm)
         if: ${{ inputs.package-manager == 'pnpm' }}
+        shell: bash
+        run: |
+          for attempt in 1 2 3; do
+            pnpm install --frozen-lockfile && exit 0
+            echo "::warning::pnpm install attempt $attempt failed, retrying in 15s..."
+            sleep 15
+          done
+          echo "::error::pnpm install failed after 3 attempts"
+          exit 1
       - run: ${{ inputs.package-manager }} run typecheck
 
   test:
@@ -123,10 +173,13 @@ jobs:
     steps:
       - uses: actions/checkout@v5
       - name: Clean workspace
-        run: |
-          rm -rf node_modules dist out .tsbuildinfo coverage tmp
-          rm -rf ~/Library/Caches/electron 2>/dev/null || true
-          rm -rf ~/.cache/electron 2>/dev/null || true
+        # Only the previous build's working files are removed here. The
+        # Electron binary cache (~/Library/Caches/electron, ~/.cache/electron)
+        # is intentionally KEPT: wiping it forced every self-hosted run to
+        # re-download Electron, and concurrent jobs sharing a runner host
+        # exhausted the connection ("socket hang up"). The cache is keyed by
+        # Electron version and integrity-checked, so stale entries are harmless.
+        run: rm -rf node_modules dist out .tsbuildinfo coverage tmp
       - name: Install Electron system dependencies (Linux)
         if: runner.os == 'Linux'
         run: |
@@ -153,10 +206,32 @@ jobs:
           node-version: ${{ inputs.node-version }}
           cache: ${{ matrix.os != 'self-hosted' && inputs.package-manager || '' }}
           package-manager-cache: ${{ matrix.os != 'self-hosted' }}
-      - run: npm ci
+      # Retry installs: native-module postinstall scripts (electron, etc.)
+      # download binaries over the network and intermittently fail with
+      # transient errors ("socket hang up", request timed out). One blip
+      # must not fail the whole pipeline.
+      - name: Install dependencies (npm)
         if: ${{ inputs.package-manager == 'npm' }}
-      - run: pnpm install --frozen-lockfile
+        shell: bash
+        run: |
+          for attempt in 1 2 3; do
+            npm ci && exit 0
+            echo "::warning::npm ci attempt $attempt failed, retrying in 15s..."
+            sleep 15
+          done
+          echo "::error::npm ci failed after 3 attempts"
+          exit 1
+      - name: Install dependencies (pnpm)
         if: ${{ inputs.package-manager == 'pnpm' }}
+        shell: bash
+        run: |
+          for attempt in 1 2 3; do
+            pnpm install --frozen-lockfile && exit 0
+            echo "::warning::pnpm install attempt $attempt failed, retrying in 15s..."
+            sleep 15
+          done
+          echo "::error::pnpm install failed after 3 attempts"
+          exit 1
       - name: Run tests
         run: ${{ inputs.package-manager }} run test
         timeout-minutes: 5
@@ -173,10 +248,13 @@ jobs:
     steps:
       - uses: actions/checkout@v5
       - name: Clean workspace
-        run: |
-          rm -rf node_modules dist out .tsbuildinfo coverage tmp
-          rm -rf ~/Library/Caches/electron 2>/dev/null || true
-          rm -rf ~/.cache/electron 2>/dev/null || true
+        # Only the previous build's working files are removed here. The
+        # Electron binary cache (~/Library/Caches/electron, ~/.cache/electron)
+        # is intentionally KEPT: wiping it forced every self-hosted run to
+        # re-download Electron, and concurrent jobs sharing a runner host
+        # exhausted the connection ("socket hang up"). The cache is keyed by
+        # Electron version and integrity-checked, so stale entries are harmless.
+        run: rm -rf node_modules dist out .tsbuildinfo coverage tmp
       - name: Install Electron system dependencies (Linux)
         if: runner.os == 'Linux'
         run: |
@@ -203,10 +281,32 @@ jobs:
           node-version: ${{ inputs.node-version }}
           cache: ${{ matrix.os != 'self-hosted' && inputs.package-manager || '' }}
           package-manager-cache: ${{ matrix.os != 'self-hosted' }}
-      - run: npm ci
+      # Retry installs: native-module postinstall scripts (electron, etc.)
+      # download binaries over the network and intermittently fail with
+      # transient errors ("socket hang up", request timed out). One blip
+      # must not fail the whole pipeline.
+      - name: Install dependencies (npm)
         if: ${{ inputs.package-manager == 'npm' }}
-      - run: pnpm install --frozen-lockfile
+        shell: bash
+        run: |
+          for attempt in 1 2 3; do
+            npm ci && exit 0
+            echo "::warning::npm ci attempt $attempt failed, retrying in 15s..."
+            sleep 15
+          done
+          echo "::error::npm ci failed after 3 attempts"
+          exit 1
+      - name: Install dependencies (pnpm)
         if: ${{ inputs.package-manager == 'pnpm' }}
+        shell: bash
+        run: |
+          for attempt in 1 2 3; do
+            pnpm install --frozen-lockfile && exit 0
+            echo "::warning::pnpm install attempt $attempt failed, retrying in 15s..."
+            sleep 15
+          done
+          echo "::error::pnpm install failed after 3 attempts"
+          exit 1
       - run: ${{ inputs.package-manager }} run build
       - uses: actions/upload-artifact@v5
         if: ${{ inputs.artifact-path != '' }}
@@ -228,10 +328,13 @@ jobs:
     steps:
       - uses: actions/checkout@v5
       - name: Clean workspace
-        run: |
-          rm -rf node_modules dist out .tsbuildinfo coverage tmp
-          rm -rf ~/Library/Caches/electron 2>/dev/null || true
-          rm -rf ~/.cache/electron 2>/dev/null || true
+        # Only the previous build's working files are removed here. The
+        # Electron binary cache (~/Library/Caches/electron, ~/.cache/electron)
+        # is intentionally KEPT: wiping it forced every self-hosted run to
+        # re-download Electron, and concurrent jobs sharing a runner host
+        # exhausted the connection ("socket hang up"). The cache is keyed by
+        # Electron version and integrity-checked, so stale entries are harmless.
+        run: rm -rf node_modules dist out .tsbuildinfo coverage tmp
       - name: Install Electron system dependencies (Linux)
         if: runner.os == 'Linux'
         run: |
@@ -262,10 +365,32 @@ jobs:
           node-version: ${{ inputs.node-version }}
           cache: ${{ matrix.os != 'self-hosted' && inputs.package-manager || '' }}
           package-manager-cache: ${{ matrix.os != 'self-hosted' }}
-      - run: npm ci
+      # Retry installs: native-module postinstall scripts (electron, etc.)
+      # download binaries over the network and intermittently fail with
+      # transient errors ("socket hang up", request timed out). One blip
+      # must not fail the whole pipeline.
+      - name: Install dependencies (npm)
         if: ${{ inputs.package-manager == 'npm' }}
-      - run: pnpm install --frozen-lockfile
+        shell: bash
+        run: |
+          for attempt in 1 2 3; do
+            npm ci && exit 0
+            echo "::warning::npm ci attempt $attempt failed, retrying in 15s..."
+            sleep 15
+          done
+          echo "::error::npm ci failed after 3 attempts"
+          exit 1
+      - name: Install dependencies (pnpm)
         if: ${{ inputs.package-manager == 'pnpm' }}
+        shell: bash
+        run: |
+          for attempt in 1 2 3; do
+            pnpm install --frozen-lockfile && exit 0
+            echo "::warning::pnpm install attempt $attempt failed, retrying in 15s..."
+            sleep 15
+          done
+          echo "::error::pnpm install failed after 3 attempts"
+          exit 1
       - name: Install Playwright
         run: npx playwright install --with-deps
       - name: Run e2e tests (Linux)

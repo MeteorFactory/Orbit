@@ -110,6 +110,23 @@ Pipelines/
 - All templates use `workflow_call` trigger for reusability
 - Pin action versions to major tags (e.g., `actions/checkout@v5`)
 
+### Git Hooks
+
+The `tests/` directory holds regression tests for the workflow templates
+(plain Bash, no dependencies). The `.githooks/pre-commit` hook runs them
+before every commit so a template regression cannot reach `main` — and from
+there every consuming repository. Enable the hook once per clone:
+
+```bash
+git config core.hooksPath .githooks
+```
+
+Run the tests manually at any time:
+
+```bash
+for t in tests/*.test.sh; do bash "$t"; done
+```
+
 ## License
 
 MIT

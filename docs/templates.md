@@ -122,6 +122,21 @@ jobs:
       package-manager: "pnpm"
 ```
 
+### Behavior on self-hosted runners
+
+- **The Electron binary cache is preserved.** The `Clean workspace` step only
+  removes the previous build's working files (`node_modules`, `dist`, …). It
+  does **not** wipe `~/Library/Caches/electron` / `~/.cache/electron`. Wiping
+  it forced every run to re-download Electron (~100 MB); when several jobs
+  shared a runner host the concurrent downloads dropped the connection
+  (`RequestError: socket hang up`) and `pnpm install` failed. The cache is
+  keyed by Electron version and integrity-checked, so stale entries are
+  harmless and safe to keep.
+- **Dependency install is retried.** `npm ci` / `pnpm install --frozen-lockfile`
+  runs inside a 3-attempt loop with a 15 s backoff, so a single transient
+  network failure in a native-module postinstall (electron, better-sqlite3, …)
+  does not fail the whole pipeline.
+
 ---
 
 ## release-electron.yml

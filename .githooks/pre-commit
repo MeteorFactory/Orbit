@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+#
+# Orbit pre-commit hook — runs the workflow regression tests in tests/.
+#
+# Enable once per clone:
+#   git config core.hooksPath .githooks
+#
+# These tests catch CI-template regressions (e.g. the "Release Alpha #255"
+# Electron-cache failure) before they are committed and propagate to every
+# repository that consumes the reusable workflows.
+
+set -uo pipefail
+
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+status=0
+
+shopt -s nullglob
+tests=("$REPO_ROOT"/tests/*.test.sh)
+shopt -u nullglob
+
+if [[ ${#tests[@]} -eq 0 ]]; then
+  exit 0
+fi
+
+for t in "${tests[@]}"; do
+  echo "running $(basename "$t")"
+  bash "$t" || status=1
+done
+
+if [[ $status -ne 0 ]]; then
+  echo "pre-commit checks failed — commit aborted" >&2
+  exit 1
+fi
+
+exit 0
