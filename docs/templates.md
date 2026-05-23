@@ -337,7 +337,7 @@ Deploys a Cloudflare Worker with optional post-deploy integration tests via Newm
 | `wrangler-env` | string | no | `"production"` | Deployment environment (production/staging) |
 | `node-version` | string | no | `"20"` | Node.js version |
 | `dry-run` | boolean | no | `false` | Run deploy in dry-run mode |
-| `pre-deploy-script` | string | no | `""` | Optional script to run before deploy |
+| `pre-deploy-script` | string | no | `""` | Optional script to run before deploy. The step receives `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` so it can provision Cloudflare resources (R2 buckets, KV namespaces…) via `wrangler` before the deploy step. |
 | `integration-test-collection` | string | no | `""` | Path to a Postman/Newman collection for post-deploy tests |
 | `integration-test-url` | string | no | `""` | Base URL to test against |
 
