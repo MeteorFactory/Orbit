@@ -43,6 +43,7 @@ jobs:
 | [`deploy-pages.yml`](templates/deploy-pages.yml) | Deploy static files to GitHub Pages | [Details](docs/templates.md#deploy-pagesyml) |
 | [`docker-build.yml`](templates/docker-build.yml) | Docker build and push with Buildx, metadata tagging, and GHA caching | [Details](docs/templates.md#docker-buildyml) |
 | [`deploy-railway.yml`](templates/deploy-railway.yml) | Deploy to Railway via CLI with optional health wait | [Details](docs/templates.md#deploy-railwayyml) |
+| [`eas-publish.yml`](templates/eas-publish.yml) | Publish an Expo (React Native) app via `eas update` and/or `eas build` | [Details](docs/templates.md#eas-publishyml) |
 
 ## Custom Actions
 
@@ -93,6 +94,7 @@ Pipelines/
     static-site-external/  # Cross-repo GitHub Pages sample
     railway-app/           # Railway deploy sample
     swift-app/             # Swift macOS release sample
+    expo-app/              # Expo (React Native) publish sample
 ```
 
 ## Contributing

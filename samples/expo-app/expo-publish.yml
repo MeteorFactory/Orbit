@@ -1,0 +1,42 @@
+name: Publish Expo
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      command:
+        description: "Action to run"
+        type: choice
+        options: [update, build, both]
+        default: update
+      update-branch:
+        description: "EAS update branch"
+        type: string
+        default: preview
+      build-profile:
+        description: "EAS build profile"
+        type: string
+        default: preview
+      build-platform:
+        description: "EAS build platform"
+        type: choice
+        options: [all, ios, android]
+        default: all
+
+concurrency:
+  group: expo-publish-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  publish:
+    uses: MeteorFactory/Orbit/.github/workflows/eas-publish.yml@main
+    with:
+      package-manager: pnpm
+      pnpm-version: "10"
+      command: ${{ github.event.inputs.command || 'update' }}
+      update-branch: ${{ github.event.inputs.update-branch || 'preview' }}
+      build-profile: ${{ github.event.inputs.build-profile || 'preview' }}
+      build-platform: ${{ github.event.inputs.build-platform || 'all' }}
+    secrets:
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}

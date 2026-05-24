@@ -1,0 +1,134 @@
+name: Publish Expo (EAS)
+
+on:
+  workflow_call:
+    inputs:
+      node-version:
+        description: "Node.js version"
+        type: string
+        default: "22"
+      package-manager:
+        description: "Package manager (npm or pnpm)"
+        type: string
+        default: "pnpm"
+      pnpm-version:
+        description: "pnpm version (only used when package-manager is pnpm)"
+        type: string
+        default: "10"
+      working-directory:
+        description: "Path to the Expo project inside the repo"
+        type: string
+        default: "."
+      eas-cli-version:
+        description: "Version of eas-cli to install (npm semver tag)"
+        type: string
+        default: "latest"
+      command:
+        description: |
+          Action the pipeline runs. One of:
+            - update : run `eas update` to push an OTA bundle (Expo Go / dev client)
+            - build  : run `eas build --non-interactive` and let EAS schedule the job
+            - both   : run `eas update` then `eas build`
+        type: string
+        default: "update"
+      update-branch:
+        description: "EAS update branch (only used when command is update or both)"
+        type: string
+        default: "preview"
+      update-message:
+        description: "Update message attached to `eas update` (defaults to the commit subject)"
+        type: string
+        default: ""
+      build-profile:
+        description: "EAS build profile (only used when command is build or both)"
+        type: string
+        default: "preview"
+      build-platform:
+        description: "EAS build platform: ios, android, or all"
+        type: string
+        default: "all"
+      build-wait:
+        description: "Wait for the EAS build to finish before exiting (true) or fire-and-forget (false)"
+        type: boolean
+        default: false
+    secrets:
+      EXPO_TOKEN:
+        description: "Expo access token with permission on the target account (https://expo.dev/accounts/<owner>/settings/access-tokens)"
+        required: true
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ${{ inputs.working-directory }}
+    env:
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Enable pnpm via corepack
+        if: ${{ inputs.package-manager == 'pnpm' }}
+        run: |
+          rm -f "$(command -v pnpm)" "$(command -v pnpx)" 2>/dev/null || true
+          corepack enable pnpm || true
+          corepack prepare pnpm@${{ inputs.pnpm-version }} --activate
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: ${{ inputs.node-version }}
+          cache: ${{ inputs.package-manager }}
+          cache-dependency-path: |
+            ${{ inputs.working-directory }}/package-lock.json
+            ${{ inputs.working-directory }}/pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: |
+          if [ "${{ inputs.package-manager }}" = "pnpm" ]; then
+            pnpm install --frozen-lockfile
+          else
+            npm ci
+          fi
+
+      - name: Install eas-cli
+        run: npm install --global eas-cli@${{ inputs.eas-cli-version }}
+
+      - name: Verify Expo authentication
+        run: |
+          if ! eas whoami; then
+            echo "::error::EXPO_TOKEN is missing or invalid. Generate a token at https://expo.dev/accounts/<owner>/settings/access-tokens and add it as a repository secret named EXPO_TOKEN."
+            exit 1
+          fi
+
+      - name: Resolve update message
+        id: msg
+        run: |
+          if [ -n "${{ inputs.update-message }}" ]; then
+            echo "value=${{ inputs.update-message }}" >> "$GITHUB_OUTPUT"
+          else
+            subject="$(git -C "$GITHUB_WORKSPACE" log -1 --pretty=%s)"
+            echo "value=$subject" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Publish update (eas update)
+        if: ${{ inputs.command == 'update' || inputs.command == 'both' }}
+        run: |
+          eas update \
+            --branch "${{ inputs.update-branch }}" \
+            --message "${{ steps.msg.outputs.value }}" \
+            --non-interactive
+
+      - name: Build (eas build)
+        if: ${{ inputs.command == 'build' || inputs.command == 'both' }}
+        run: |
+          wait_flag=""
+          if [ "${{ inputs.build-wait }}" = "true" ]; then
+            wait_flag="--wait"
+          else
+            wait_flag="--no-wait"
+          fi
+          eas build \
+            --profile "${{ inputs.build-profile }}" \
+            --platform "${{ inputs.build-platform }}" \
+            --non-interactive \
+            $wait_flag

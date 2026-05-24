@@ -384,3 +384,78 @@ jobs:
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
       INTEGRATION_TEST_API_KEY: ${{ secrets.STARGATE_API_KEY }}
 ```
+
+---
+
+## eas-publish.yml
+
+Publishes an Expo (React Native) app to EAS — either pushes an OTA update consumable by Expo Go / dev clients (`eas update`), schedules a managed cloud build (`eas build`), or both.
+
+### Inputs
+
+| Input | Type | Required | Default | Description |
+|-------|------|----------|---------|-------------|
+| `node-version` | string | no | `"22"` | Node.js version |
+| `package-manager` | string | no | `"pnpm"` | `npm` or `pnpm` |
+| `pnpm-version` | string | no | `"10"` | pnpm version (used only when `package-manager` is `pnpm`) |
+| `working-directory` | string | no | `"."` | Path to the Expo project inside the repo |
+| `eas-cli-version` | string | no | `"latest"` | Version of `eas-cli` installed globally |
+| `command` | string | no | `"update"` | `update`, `build`, or `both` |
+| `update-branch` | string | no | `"preview"` | EAS update branch (used when command is `update`/`both`) |
+| `update-message` | string | no | `""` | Message attached to `eas update`. Defaults to the commit subject |
+| `build-profile` | string | no | `"preview"` | EAS build profile from `eas.json` (used when command is `build`/`both`) |
+| `build-platform` | string | no | `"all"` | `ios`, `android`, or `all` |
+| `build-wait` | boolean | no | `false` | Wait for the EAS build to finish (`--wait`) or fire-and-forget (`--no-wait`) |
+
+### Secrets
+
+| Secret | Required | Description |
+|--------|----------|-------------|
+| `EXPO_TOKEN` | yes | Expo access token with permission on the target account. Generate one under https://expo.dev/accounts/<owner>/settings/access-tokens |
+
+### Setup
+
+1. Link the project to the target EAS account (one-off, from a local clone):
+   ```
+   npm install --global eas-cli
+   eas init --id <projectId>
+   ```
+   Make sure `app.json` carries the matching `owner` and `extra.eas.projectId`.
+2. In `expo.dev`, generate an access token for the account and store it as the `EXPO_TOKEN` repository secret.
+3. Reference the workflow from the consumer repo (see example below).
+
+### Example — publish to Expo Go on every push
+
+```yaml
+name: Publish Expo
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  publish:
+    uses: MeteorFactory/Orbit/.github/workflows/eas-publish.yml@main
+    with:
+      package-manager: pnpm
+      command: update
+      update-branch: preview
+    secrets:
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+```
+
+### Example — schedule a build on demand
+
+```yaml
+jobs:
+  build:
+    uses: MeteorFactory/Orbit/.github/workflows/eas-publish.yml@main
+    with:
+      command: build
+      build-profile: preview
+      build-platform: all
+      build-wait: false
+    secrets:
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+```
