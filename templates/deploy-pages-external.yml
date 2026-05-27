@@ -132,7 +132,18 @@ jobs:
           git checkout -b ${{ inputs.target-branch }}
           git add -A
           git commit -m "deploy: update pages from ${{ github.repository }}@${{ github.sha }}"
-          git push --force "https://x-access-token:${DEPLOY_TOKEN}@github.com/${{ inputs.target-repo }}.git" ${{ inputs.target-branch }}
+          # GitHub occasionally rejects pushes with a transient
+          # "remote: fatal error in commit_refs" — retry with backoff so a
+          # single server-side blip does not fail the whole deploy.
+          for attempt in 1 2 3; do
+            if git push --force "https://x-access-token:${DEPLOY_TOKEN}@github.com/${{ inputs.target-repo }}.git" ${{ inputs.target-branch }}; then
+              exit 0
+            fi
+            echo "::warning::branch push attempt $attempt failed; retrying in $((attempt * 15))s"
+            sleep $((attempt * 15))
+          done
+          echo "::error::branch push failed after 3 attempts"
+          exit 1
         env:
           DEPLOY_TOKEN: ${{ steps.app-token.outputs.token || github.token }}
 
@@ -140,4 +151,14 @@ jobs:
         if: ${{ inputs.enable-tagging }}
         run: |
           git tag ${{ steps.version.outputs.tag }}
-          git push origin ${{ steps.version.outputs.tag }}
+          # Same transient "fatal error in commit_refs" can hit tag pushes —
+          # retry with backoff so we do not lose the deploy version.
+          for attempt in 1 2 3; do
+            if git push origin ${{ steps.version.outputs.tag }}; then
+              exit 0
+            fi
+            echo "::warning::tag push attempt $attempt failed; retrying in $((attempt * 15))s"
+            sleep $((attempt * 15))
+          done
+          echo "::error::tag push failed after 3 attempts"
+          exit 1
