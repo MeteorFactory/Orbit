@@ -15,3 +15,7 @@ megalinter-reports/
 # End analysis tool reports
 /.singularity-worktrees/
 .singularity-session.lock
+
+# AI rule files (project guard-rails) are tracked; the rest of .claude is local-only.
+!.claude/rules/
+!.claude/rules/**

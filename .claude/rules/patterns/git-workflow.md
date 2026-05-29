@@ -7,8 +7,7 @@ type(scope): description (#F-XX)
 ```
 
 - `type`: `feat`, `fix`, `refactor`, `test`, `docs`, `chore`, `ci`.
-- `scope`: template or area (`ci-node`, `release-electron`, `azure-keyvault`,
-  `tests`, `docs`, `ai`).
+- `scope`: template or area (`ci-node`, `release-electron`, `azure-keyvault`, `tests`, `docs`, `ai`).
 - `description`: lowercase, imperative, no period.
 - `(#F-XX)`: kanban ticket reference when applicable.
 
@@ -20,25 +19,27 @@ docs(ai): refresh configuration
 chore(deps): bump actions/checkout to v5
 ```
 
-## No Co-Authored-By
+## Hard rules
 
-Never add `Co-Authored-By: ...` trailers.
+- NEVER `--no-verify`, `HUSKY=0`, `GIT_SKIP_HOOKS=1`. **Why:** `.githooks/pre-commit` runs the bash regression suite — bypassing it ships broken templates.
+- NEVER add `Co-Authored-By` trailers. Commit message stays clean.
+- Linear history. Rebase, never merge. `git pull --rebase` always.
+- An edit to `templates/<x>.yml` MUST be paired with the SAME-COMMIT edit to `.github/workflows/<x>.yml`. The pre-commit test enforces this; do not split into two commits. **Why:** consumers always read the `.github/workflows/` copy; a one-commit-only update means a window where docs say one thing and prod runs another.
+- A failed hook means the commit did NOT happen. NEVER `git commit --amend` after a hook failure — there was no previous commit to amend.
+- NEVER delete a test to make a commit pass — tests encode regressions.
+- PRs touching a template include the URL of a live consumer run that exercises the change.
 
-## Never bypass git hooks
-
-`.githooks/pre-commit` runs `tests/*.test.sh`. Enable once per clone:
+## Enable hooks once per clone
 
 ```bash
 git config core.hooksPath .githooks
 ```
 
-Once enabled:
-- Never `--no-verify`, `HUSKY=0`, `GIT_SKIP_HOOKS=1`.
-- If a test fails, the commit did NOT happen. Read the test output, fix the
-  template (or update the test in the same commit if the invariant intentionally
-  changed), re-stage, retry.
-- Never `git commit --amend` after a hook failure.
-- Never delete a test to make a commit pass — tests encode regressions.
+## When the hook fails
+
+- Mismatch between `templates/` and `.github/workflows/` → copy the file (the test tells you which).
+- `actionlint` errors → fix the YAML; do not delete the test.
+- A broken hook script → fix the script. NEVER delete `.githooks/`.
 
 ## Branch naming
 
@@ -46,23 +47,19 @@ Once enabled:
 type/description
 ```
 
-Examples: `feat/release-worker-multi-region`, `fix/ci-electron-cache-key`,
-`docs/eas-publish-getting-started`.
+Examples: `feat/release-worker-multi-region`, `fix/ci-electron-cache-key`, `docs/eas-publish-getting-started`.
 
 ## Worktree commits
 
 When working inside `.singularity-worktrees/`:
 
 - Stay on the worktree branch.
-- Stage specific files (`templates/<x>.yml`, `.github/workflows/<x>.yml`,
-  `tests/<x>.test.sh`, `docs/*.md`).
-- The orchestration engine rebases the worktree back into the base branch on
-  completion — never `git merge` manually.
+- Stage specific files (`templates/<x>.yml`, `.github/workflows/<x>.yml`, `tests/<x>.test.sh`, `docs/*.md`).
+- The orchestration engine rebases the worktree back into the base branch on completion — never `git merge` manually.
 
 ## Backward-compatibility callouts
 
-When a change affects the workflow input/secret surface, mention it in the
-commit body so consumers can react:
+When a change affects the workflow input/secret surface, mention it in the commit body so consumers can react:
 
 ```
 feat(ci-node): expose os-matrix input
