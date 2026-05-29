@@ -451,8 +451,97 @@ jobs:
       - name: Run e2e tests (Linux)
         if: runner.os == 'Linux'
         run: xvfb-run --auto-servernum -- ${{ inputs.package-manager }} run test:e2e
-      - name: Run e2e tests (macOS/Windows)
-        if: runner.os != 'Linux'
+      - name: Run e2e tests (macOS)
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          # Self-hosted macOS Tart VMs that host parallel CI jobs go silent
+          # during Playwright + Electron startup (long app-boot / page-load
+          # phases produce no stdout). If the host enters idle/disk sleep
+          # the runner agent loses its WebSocket and the step ends in
+          # `failure` with logId=null and `result: in_progress` — same
+          # signature as Release Alpha #281/#290 around electron-builder,
+          # and the failure mode that killed Release Alpha #321 (e2e step
+          # exited at 12m54s with no log surface). Mirror the four guard
+          # rails proven on the electron-builder steps in release-alpha.yml:
+          #   1. `diag` dumps runner state before/after each attempt so a
+          #      future runner death leaves actionable data (memory, disk,
+          #      runner name, VM uptime) instead of vanishing into the
+          #      runner-agent crash.
+          #   2. `$TIMEOUT_BIN --kill-after=30s 12m` caps each attempt so
+          #      a single hung Playwright invocation cannot burn the whole
+          #      30-min job budget — without this the retry loop never
+          #      gets to retry.
+          #   3. `caffeinate -i -m` wraps each attempt, blocking macOS
+          #      idle-sleep and disk-idle assertions for its duration so
+          #      the host cannot be suspended out from under the runner
+          #      agent while Playwright/Electron is silent.
+          #   4. `start_heartbeat` emits a stdout line every 30s as a
+          #      belt-and-braces keep-alive AND a per-minute trail so the
+          #      next runner death pins down WHERE progress stopped.
+          # macOS doesn't ship a GNU `timeout`; install coreutils via
+          # Homebrew once if missing and prefer `gtimeout`.
+          # `HOMEBREW_NO_AUTO_UPDATE=1` prevents parallel matrix jobs from
+          # colliding on Homebrew's `vendor-install ruby` lockfile (same
+          # rationale as the brew-install retry in release-alpha.yml).
+          if ! command -v gtimeout >/dev/null 2>&1 && ! command -v timeout >/dev/null 2>&1; then
+            for try in 1 2 3; do
+              if HOMEBREW_NO_AUTO_UPDATE=1 HOMEBREW_NO_INSTALL_CLEANUP=1 \
+                  brew install coreutils >/dev/null 2>&1; then
+                break
+              fi
+              sleep $((RANDOM % 10 + try * 5))
+            done
+          fi
+          TIMEOUT_BIN=$(command -v gtimeout || command -v timeout || true)
+          if [ -z "$TIMEOUT_BIN" ]; then
+            echo "::error::No timeout/gtimeout available — install coreutils on the runner image"
+            exit 1
+          fi
+          diag() {
+            echo "::group::Runner state ($1)"
+            uname -a
+            echo "runner: ${RUNNER_NAME:-?} workspace: ${RUNNER_WORKSPACE:-?}"
+            uptime || true
+            vm_stat | awk '/Pages free|Pages active|Pages inactive|Pages speculative|Pages wired/ {print}' || true
+            df -h . || true
+            echo "::endgroup::"
+          }
+          heartbeat_pid=""
+          start_heartbeat() {
+            (
+              while true; do
+                sleep 30
+                ts=$(date -u +%H:%M:%S)
+                free=$(vm_stat 2>/dev/null | awk '/Pages free/ {print $3}' | tr -d '.')
+                printf '[heartbeat %s] alive — free pages=%s\n' "$ts" "${free:-?}"
+              done
+            ) &
+            heartbeat_pid=$!
+          }
+          stop_heartbeat() {
+            if [ -n "$heartbeat_pid" ]; then
+              kill "$heartbeat_pid" 2>/dev/null || true
+              wait "$heartbeat_pid" 2>/dev/null || true
+              heartbeat_pid=""
+            fi
+          }
+          trap stop_heartbeat EXIT
+          diag "before-e2e"
+          for attempt in 1 2; do
+            start_heartbeat
+            caffeinate -i -m "$TIMEOUT_BIN" --kill-after=30s 12m \
+              ${{ inputs.package-manager }} run test:e2e && { stop_heartbeat; exit 0; }
+            status=$?
+            stop_heartbeat
+            echo "::warning::e2e attempt $attempt failed (exit $status), retrying in 15s..."
+            diag "after-attempt-$attempt-failed"
+            sleep 15
+          done
+          echo "::error::e2e tests failed after 2 attempts"
+          exit 1
+      - name: Run e2e tests (Windows)
+        if: runner.os == 'Windows'
         run: ${{ inputs.package-manager }} run test:e2e
       - uses: actions/upload-artifact@v5
         if: ${{ always() && inputs.run-e2e }}
