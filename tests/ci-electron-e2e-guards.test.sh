@@ -16,10 +16,17 @@
 # diag dumps + retry loop). This test fails the commit if any of those
 # guard rails regresses on the macOS e2e step.
 #
-# Linux and Windows e2e steps are intentionally NOT subject to these
-# guards: Linux uses xvfb-run (hosted runners, no Tart VM, no App Nap),
 # Windows hosted runners do not exhibit the App-Nap suspension failure
-# mode. The macOS step is the only one that needs the guards.
+# mode, so the Windows step is intentionally left as a raw invocation.
+#
+# Linux DID need the guards: Release Alpha runs #337/#338/#339 all
+# blocked on the Linux e2e step under `os-matrix: '["self-hosted"]'` —
+# a Neutron-provisioned self-hosted Linux runner that shares the host
+# with build-linux. The previous assumption ("Linux uses xvfb-run on
+# hosted runners, no guards needed") missed that the self-hosted Linux
+# path can hang Playwright/Electron startup and consume the whole
+# 30-min budget with no retry. The Linux step now mirrors the macOS
+# guards minus the macOS-only caffeinate wrap (Linux has no App Nap).
 
 set -uo pipefail
 
@@ -129,6 +136,51 @@ for f in "$TEMPLATE" "$WORKFLOW"; do
     pass "$rel splits macOS and Windows e2e steps by runner.os"
   else
     err "$rel does not split macOS and Windows e2e steps — macOS-only guards leak onto Windows"
+  fi
+done
+
+# 8. The Linux e2e step must wrap test:e2e in a per-attempt timeout so a
+#    single hung Playwright invocation cannot burn the whole 30-min job
+#    budget on a self-hosted Linux runner (Release Alpha #337/#338/#339).
+for f in "$TEMPLATE" "$WORKFLOW"; do
+  rel="${f#"$REPO_ROOT"/}"
+  if awk '
+      /timeout --kill-after=30s [0-9]+m/ { saw_timeout = 1; next }
+      saw_timeout && /xvfb-run/ && /run test:e2e/ { found = 1; exit }
+      saw_timeout && !/\\[[:space:]]*$/ && !/^[[:space:]]*$/ { saw_timeout = 0 }
+      END { exit found ? 0 : 1 }
+    ' "$f"; then
+    pass "$rel Linux e2e step caps each attempt with timeout --kill-after"
+  else
+    err "$rel Linux e2e step is missing a per-attempt timeout — hung Playwright will burn the whole job budget on self-hosted Linux"
+  fi
+done
+
+# 9. The Linux e2e step must run inside a retry loop so a single transient
+#    self-hosted runner blip does not fail the whole pipeline.
+for f in "$TEMPLATE" "$WORKFLOW"; do
+  rel="${f#"$REPO_ROOT"/}"
+  # The Linux step uses `for attempt in 1 2`; the macOS step uses the same.
+  # We already asserted the macOS retry loop above — assert there are at
+  # LEAST two such loops in the file so the Linux one cannot regress to
+  # a single invocation.
+  count=$(grep -Ec '^[[:space:]]*for attempt in 1 2[[:space:]]*;[[:space:]]*do[[:space:]]*$' "$f" || true)
+  if [[ "$count" -ge 2 ]]; then
+    pass "$rel Linux + macOS e2e steps both run inside retry loops"
+  else
+    err "$rel only $count retry loop(s) for e2e — Linux must also retry on self-hosted runner blips"
+  fi
+done
+
+# 10. The Linux e2e step must emit a stdout heartbeat AND diag dumps so a
+#     silent runner death pins down where progress stopped. Same rationale
+#     as the macOS step but on /proc/meminfo (Linux) instead of vm_stat.
+for f in "$TEMPLATE" "$WORKFLOW"; do
+  rel="${f#"$REPO_ROOT"/}"
+  if grep -q 'MemAvailable' "$f" && grep -q 'free -m' "$f"; then
+    pass "$rel Linux e2e step emits heartbeat + diag (MemAvailable, free -m)"
+  else
+    err "$rel Linux e2e step is missing the /proc/meminfo heartbeat or free -m diag — silent runner deaths will be opaque"
   fi
 done
 

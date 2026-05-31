@@ -450,7 +450,71 @@ jobs:
         run: npx playwright install --with-deps
       - name: Run e2e tests (Linux)
         if: runner.os == 'Linux'
-        run: xvfb-run --auto-servernum -- ${{ inputs.package-manager }} run test:e2e
+        shell: bash
+        run: |
+          # Release Alpha runs #337/#338/#339 all blocked on this step.
+          # The Linux e2e step previously was a raw `xvfb-run -- pnpm test:e2e`
+          # invocation with no per-attempt timeout, no heartbeat, no diag dump
+          # and no retry loop. That is safe on GitHub-hosted ubuntu-latest
+          # runners but Release Alpha pins `os-matrix: '["self-hosted"]'`,
+          # which schedules the e2e on a Neutron-provisioned self-hosted Linux
+          # runner that shares the host with build-linux. A single hung
+          # Playwright/Electron startup then consumes the whole 30-min job
+          # budget, the retry loop never gets to retry, and one transient
+          # runner-agent blip fails the whole pipeline.
+          #
+          # Three guard rails (the caffeinate wrap is macOS-only and does not
+          # apply here — Linux has no App Nap):
+          #   1. `diag` dumps runner state before the run and after every
+          #      failed attempt so a future runner death leaves actionable
+          #      data instead of vanishing into the runner-agent crash.
+          #   2. `timeout --kill-after=30s 12m` caps each attempt so a single
+          #      hung Playwright invocation cannot burn the whole job budget.
+          #   3. `start_heartbeat` emits a stdout line every 30s as a
+          #      belt-and-braces keep-alive AND a per-minute trail so the
+          #      next runner death pins down WHERE progress stopped.
+          diag() {
+            echo "::group::Runner state ($1)"
+            uname -a
+            echo "runner: ${RUNNER_NAME:-?} workspace: ${RUNNER_WORKSPACE:-?}"
+            uptime || true
+            free -m || true
+            df -h . || true
+            echo "::endgroup::"
+          }
+          heartbeat_pid=""
+          start_heartbeat() {
+            (
+              while true; do
+                sleep 30
+                ts=$(date -u +%H:%M:%S)
+                free_kb=$(awk '/MemAvailable/ {print $2}' /proc/meminfo 2>/dev/null)
+                printf '[heartbeat %s] alive — MemAvailable=%s kB\n' "$ts" "${free_kb:-?}"
+              done
+            ) &
+            heartbeat_pid=$!
+          }
+          stop_heartbeat() {
+            if [ -n "$heartbeat_pid" ]; then
+              kill "$heartbeat_pid" 2>/dev/null || true
+              wait "$heartbeat_pid" 2>/dev/null || true
+              heartbeat_pid=""
+            fi
+          }
+          trap stop_heartbeat EXIT
+          diag "before-e2e"
+          for attempt in 1 2; do
+            start_heartbeat
+            timeout --kill-after=30s 12m \
+              xvfb-run --auto-servernum -- ${{ inputs.package-manager }} run test:e2e && { stop_heartbeat; exit 0; }
+            status=$?
+            stop_heartbeat
+            echo "::warning::e2e attempt $attempt failed (exit $status), retrying in 15s..."
+            diag "after-attempt-$attempt-failed"
+            sleep 15
+          done
+          echo "::error::e2e tests failed after 2 attempts"
+          exit 1
       - name: Run e2e tests (macOS)
         if: runner.os == 'macOS'
         shell: bash
