@@ -362,7 +362,19 @@ jobs:
 
   e2e:
     if: ${{ inputs.run-e2e }}
-    timeout-minutes: 30
+    # Job budget MUST stay above (attempts × per-attempt timeout + install/
+    # setup slack). Current budget: 2 × 20 min + ~20 min slack. Bumped from
+    # 30 → 60 alongside the per-attempt 12m → 20m raise after Release Alpha
+    # run #346: the e2e step wraps `test:e2e` (electron-vite build then
+    # playwright) in a per-attempt `timeout`, so the ~3-4 min build ate into
+    # the old 12-min cap and left only ~8 min of Playwright runtime. On the
+    # contended self-hosted Linux runner a healthy 39-suite serial run needs
+    # more than that, so it could not finish under a globalTimeout small
+    # enough to also fire before the cap's SIGKILL — #345 (runner-death leak)
+    # and #346 (Playwright self-abort) were the two horns of that squeeze.
+    # A 20-min per-attempt cap gives Playwright ~16 min, room for both a
+    # healthy run AND a globalTimeout that still reaps before SIGKILL.
+    timeout-minutes: 60
     strategy:
       matrix:
         os: ${{ fromJson(inputs.os-matrix) }}
@@ -468,7 +480,7 @@ jobs:
           #   1. `diag` dumps runner state before the run and after every
           #      failed attempt so a future runner death leaves actionable
           #      data instead of vanishing into the runner-agent crash.
-          #   2. `timeout --kill-after=30s 12m` caps each attempt so a single
+          #   2. `timeout --kill-after=30s 20m` caps each attempt so a single
           #      hung Playwright invocation cannot burn the whole job budget.
           #   3. `start_heartbeat` emits a stdout line every 30s as a
           #      belt-and-braces keep-alive AND a per-minute trail so the
@@ -505,7 +517,7 @@ jobs:
           diag "before-e2e"
           for attempt in 1 2; do
             start_heartbeat
-            timeout --kill-after=30s 12m \
+            timeout --kill-after=30s 20m \
               xvfb-run --auto-servernum -- ${{ inputs.package-manager }} run test:e2e && { stop_heartbeat; exit 0; }
             status=$?
             stop_heartbeat
@@ -532,7 +544,7 @@ jobs:
           #      future runner death leaves actionable data (memory, disk,
           #      runner name, VM uptime) instead of vanishing into the
           #      runner-agent crash.
-          #   2. `$TIMEOUT_BIN --kill-after=30s 12m` caps each attempt so
+          #   2. `$TIMEOUT_BIN --kill-after=30s 20m` caps each attempt so
           #      a single hung Playwright invocation cannot burn the whole
           #      30-min job budget — without this the retry loop never
           #      gets to retry.
@@ -594,7 +606,7 @@ jobs:
           diag "before-e2e"
           for attempt in 1 2; do
             start_heartbeat
-            caffeinate -i -m "$TIMEOUT_BIN" --kill-after=30s 12m \
+            caffeinate -i -m "$TIMEOUT_BIN" --kill-after=30s 20m \
               ${{ inputs.package-manager }} run test:e2e && { stop_heartbeat; exit 0; }
             status=$?
             stop_heartbeat

@@ -184,6 +184,50 @@ for f in "$TEMPLATE" "$WORKFLOW"; do
   fi
 done
 
+# 11. The e2e per-attempt timeout must stay LARGE ENOUGH to leave Playwright
+#     real runtime after the in-step `electron-vite build`. Covers the
+#     "Release Alpha #346" failure
+#     (https://github.com/MeteorFactory/Singularity/actions/runs/26739728330):
+#     `test:e2e` is `electron-vite build && playwright test`, both run inside
+#     the per-attempt `timeout`/`gtimeout`. With the old 12-min cap the ~3-4
+#     min build left only ~8 min of Playwright runtime; the consumer's
+#     Playwright `globalTimeout` had to be squeezed BELOW that to fire (and
+#     reap leaked Electron trees) before the cap's SIGKILL — but on the
+#     contended self-hosted Linux runner a healthy 39-suite serial run needs
+#     MORE than that squeezed window, so Playwright self-aborted at its own
+#     globalTimeout and the e2e step failed. Raising the cap to >= 18 min
+#     gives Playwright >= ~14 min, room for both a healthy run AND a
+#     globalTimeout that still reaps before SIGKILL. This guard fails the
+#     commit if a future edit drops the cap back toward the 12-min squeeze.
+#
+#     The consumer side of this contract (Playwright `globalTimeout` <= the
+#     Playwright slice of this cap, and >= a realistic healthy run) is pinned
+#     in Singularity's tests/build/e2e-harness-timeouts.test.ts. Keep the two
+#     in lock-step: if you change the cap here, update that guard's
+#     CI_E2E_ATTEMPT_TIMEOUT_MS constant in the same change-set.
+MIN_E2E_ATTEMPT_MINUTES=18
+for f in "$TEMPLATE" "$WORKFLOW"; do
+  rel="${f#"$REPO_ROOT"/}"
+  # Pull every per-attempt e2e cap (Linux `timeout` + macOS `$TIMEOUT_BIN`)
+  # and assert each is >= the floor. `--kill-after=30s` is the grace window,
+  # not the cap, so anchor on the minute value that follows it.
+  caps=$(grep -Eo -- '--kill-after=30s [0-9]+m' "$f" | grep -Eo '[0-9]+' || true)
+  if [[ -z "$caps" ]]; then
+    err "$rel has no per-attempt e2e timeout cap to check"
+    continue
+  fi
+  step_ok=1
+  for minutes in $caps; do
+    if [[ "$minutes" -lt "$MIN_E2E_ATTEMPT_MINUTES" ]]; then
+      err "$rel has an e2e per-attempt cap of ${minutes}m (< ${MIN_E2E_ATTEMPT_MINUTES}m) — the build squeezes Playwright runtime (Release Alpha #346)"
+      step_ok=0
+    fi
+  done
+  if [[ "$step_ok" -eq 1 ]]; then
+    pass "$rel all e2e per-attempt caps are >= ${MIN_E2E_ATTEMPT_MINUTES}m (leaves Playwright real runtime after the build)"
+  fi
+done
+
 if [[ $fail -ne 0 ]]; then
   echo "FAILED"
   exit 1
